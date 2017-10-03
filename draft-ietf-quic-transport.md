@@ -761,9 +761,9 @@ packet number field.
 ### Initial Packet Number {#initial-packet-number}
 
 The initial value for packet number MUST be selected from an uniform random
-distribution between 0 and 2^31-1.  That is, the lower 31 bits of the packet
-number are randomized.  {{?RFC4086}} provides guidance on the generation of
-random values.
+distribution between 1 and 2^31-1.  That is, the lower 31 bits of the packet
+number are randomized, but 0 is forbidden.  {{?RFC4086}} provides guidance 
+on the generation of random values.
 
 The first set of packets sent by an endpoint MUST include the low 32-bits of the
 packet number.  Once any packet has been acknowledged, subsequent packets can
