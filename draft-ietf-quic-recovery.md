@@ -582,8 +582,8 @@ follows:
    min_rtt = infinite
    max_ack_delay = 0
    largest_sent_before_rto = 0
-   time_of_last_sent_retransmittable_packet = 0
-   time_of_last_sent_handshake_packet = 0
+   time_of_last_sent_retransmittable_packet = now
+   time_of_last_sent_handshake_packet = now
    largest_sent_packet = 0
 ~~~
 
