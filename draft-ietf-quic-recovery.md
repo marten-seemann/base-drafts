@@ -93,8 +93,8 @@ All transmissions in QUIC are sent with a packet-level header, which indicates
 an encryption level and includes a packet sequence number
 (referred to below as a packet number).  The encryption level indicates the
 packet number space, as described in the {{QUIC-TRANSPORT}} document.  Packet
-numbers never repeat within an packet number space for the lifetime of a
-connection.  Packet numbers are monotonically increasing within a space,
+numbers never repeat within a packet number space for the lifetime of a
+connection.  Packet numbers monotonically increase within a space,
 preventing ambiguity.
 
 This fundamental design decision obviates the need for disambiguating
@@ -127,15 +127,17 @@ these protocol differences below.
 ### Separate Packet Number Spaces
 
 Because QUIC packets must be received and processed before being acknowledged,
-it uses separate packet number spaces for each encryption level.  Separating the
+QUIC uses separate packet number spaces for each encryption level
+(except that 0-RTT and all generations of 1-RTT keys use the same
+packet number space). Separating the
 spaces allows the recovery mechanisms to work without special cases to avoid
 spuriously retransmitting un-processable packets.  Multiple recovery contexts
 creates multiple tails, and tails tend to require costly timeouts to recover.
-The optimizations({{optimizations}}) section below describes
+The optimizations ({{optimizations}}) section below describes
 some optimizations to allow recovering from these tails as quickly as a single
 packet number space without making assumptions about receiver behavior.
 All packet number spaces are expected to traverse a single path, so QUIC
-uses a unified congestion control and RTT measurement across the spaces.
+uses unified congestion control and RTT measurement across the spaces.
 
 ### Monotonically Increasing Packet Numbers
 
@@ -426,22 +428,22 @@ There are cases where one may be able to gain recovery information from
 acknowledgements of packets in another packet number space, but they rely
 on complex assumptions about the peer’s processing and acknowledgement
 algorithms.  Even those are unable to quickly recover from cases such as
-losing the client's INITIAL, but receiving the 0RTT packets.  Below are
-thre different optimizations in increasing complexity that minimize
+losing the client's INITIAL, but receiving the 0-RTT packets.  Below are
+three different optimizations in increasing complexity that minimize
 handshake latency.
 
 ### Empty ACK frames
 
 Similar to DTLS 1.3 Section 7, the goal is to more quickly retransmit lost
 packets when the only other outstanding packets are undecryptable, such as
-0RTT packet(s) sent after a client INITIAL.  In that case, the peer can’t
-even decrypt the packet number of the 0RTT packets, but they do know a
+0-RTT packet(s) sent after a client INITIAL.  In that case, the peer can’t
+even decrypt the packet number of the 0-RTT packets, but they do know a
 packet for a QUIC connection of a supported version was received.
 
-The receiver SHOULD send an empty ACK frame soon(ie: 1ms) after
+The receiver SHOULD send an empty ACK frame soon (e.g., 1ms) after
 undecryptable packets are received, even if those received packets are
 not buffered for later decryption.  The small delay allows for cases when
-0RTT packets are reordered in front of the INITIAL, which is not uncommon
+0-RTT packets are reordered in front of the INITIAL, which is not uncommon
 on networks that prioritize small packets.  When an empty ACK frame is
 received, a sender would immediately retransmit the missing handshake
 packet(s) as though the handshake timer had fired and re-arm the handshake
@@ -457,29 +459,31 @@ default RTT if no RTT measurements have been taken.
 
 Despite loss recovery being separate for different packet number spaces,
 the ability to send a compound packet enables faster recovery with small,
-and sometimes no overhead.  The acknowledgement of the bundled packet
+and sometimes no overhead.  The acknowledgement of a compound packet
 allows QUIC recovery to use early retransmit to determine if any prior
 packets in that space were lost without waiting for timeouts.
 
 This optimization is particularly useful when:
- * Retransmitting the client’s INITIAL, which must be padded to a full
+
+ * Retransmitting the client’s Initial, which must be padded to a full
    sized packet, so the datagram typically has extra space to retransmit
-   some outstanding 0RTT data.
- * The server sends 1RTT data soon after the final handshake flight
-   (containing ServerFinished) and can proactively retransmit an empty
-   CRYPTO_HS frame bundled with one or more 1RTT packets.
- * The clients sends 1RTT data soon after the final TLS flight
-   (containing the client finished) and can proactively retransmit the
-   final client flight with one or more 1RTT packets.
+   some outstanding 0-RTT data.
+ * The server sends 1-RTT data soon after the final handshake flight
+   (containing the server Finished) and can proactively retransmit an empty
+   CRYPTO_HS frame bundled with one or more 1-RTT packets.
+ * The clients sends 1-RTT data soon after the final TLS flight
+   (containing the client Finished) and can proactively retransmit the
+   final client flight with one or more 1-RTT packets.
 
 ### Implicit Acknowledgements
 
 Handshake data may be cancelled by handshake state transitions.
 
 In particular:
+
  * A peer processing data in a HANDSHAKE packet indicates
    the INITIAL packet(s) have been delivered.
- * A peer processing 1RTT packets indicates all CRYPTO_HS data in
+ * A peer processing 1-RTT packets indicates all CRYPTO_HS data in
    HANDSHAKE packets has been delivered.
 
 ## Generating Acknowledgements
@@ -816,7 +820,7 @@ closed once a reject is sent, so no timer is set to retransmit the reject.
 
 Version negotiation packets are always stateless, and MUST be sent once per
 handshake packet that uses an unsupported QUIC version, and MAY be sent in
-response to 0RTT packets.
+response to 0-RTT packets.
 
 #### Tail Loss Probe and Retransmission Alarm
 
