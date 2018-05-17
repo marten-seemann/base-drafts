@@ -975,7 +975,7 @@ learned from `ACK` frames cannot be entirely relied upon, since an attacker is
 able to inject these packets.  Timing and packet retransmission information from
 `ACK` frames is critical to the functioning of the protocol, but these frames
 might be spoofed or altered. As noted in {{carrying-tls}}, ACK frames MUST
-NOT acknowledge frames that appeared in a different packet number space from
+NOT acknowledge packets that appeared in a different packet number space from
 that in which the ACK was sent. An endpoint must treat the receipt of such an
 ACK as a connection error of type PROTOCOL_VIOLATION.
 
