@@ -1,4 +1,4 @@
-<---
+---
 title: "QUIC: A UDP-Based Multiplexed and Secure Transport"
 abbrev: QUIC Transport Protocol
 docname: draft-ietf-quic-transport-latest
@@ -651,8 +651,8 @@ incremented normally for other Handshake packets.
 
 Servers MUST NOT send more than three packets including Initial and Handshake
 packets without receiving a packet from a verified source address.  Source
-addresses can be verified through an address validation token, a Retry packet
-exchange, or by receiving
+addresses can be verified through an address validation token
+(delivered via a Retry packet or a NEW_TOKEN frame) or by receiving
 any message from the client encrypted using the Handshake keys.
 
 The payload of this packet contains CRYPTO_HS frames and could contain PADDING,
