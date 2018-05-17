@@ -444,8 +444,8 @@ data is that the server might wish to provide additional or updated session
 tickets to a client.
 
 When the handshake is complete, QUIC only needs to provide TLS with any data
-that arrives in CRYPTO streams.  In the same way that is done during the handshake,
-new data is requested from TLS after providing received data.
+that arrives in CRYPTO streams.  In the same way that is done during the
+handshake, new data is requested from TLS after providing received data.
 
 Important:
 
@@ -471,7 +471,7 @@ provided with new handshake octets, or after TLS produces handshake octets.
 This ordering means that there could be frames that carry TLS handshake messages
 ready to send at the same time that application data is available.  An
 implementation MUST ensure that TLS handshake messages are always sent in
-packets protected with handshake keys (see {{handshake-secrets}}).  Separate
+packets protected with handshake keys (see {{initial-secrets}}).  Separate
 packets are required for data that needs protection application data keys.
 
 If 0-RTT is possible, it is ready after the client sends a TLS ClientHello
@@ -639,14 +639,14 @@ handshake, using the AEAD algorithm negotiated by TLS.
 QUIC derives packet encryption keys in the same way as TLS 1.3.
 Each encryption level/direction pair has a secret value, which
 is then used to derive the traffic keys using as described
-in {{TLS 1.3}}; Section 7.3.
+in {{TLS13}}; Section 7.3.
 
 The keys for the Initial encryption level are computed based on
 the client's first Destination Connection Id, as described in
 {{initial-secrets}}.
 
 The keys for the remaining encryption level are computed in the same
-fashion as the corresponding TLS keys (see {{TLS 1.3}}; Section 7),
+fashion as the corresponding TLS keys (see {{TLS13}}; Section 7),
 except that the label for HKDF-Expand-Label uses the prefix "quic "
 rather than "tls 13". The purpose of this change is to provide key
 separation between TLS and QUIC, so that TLS stacks can avoid
@@ -670,8 +670,8 @@ server_handshake_secret =
 ~~~
 
 The hash function for HKDF when deriving handshake secrets and keys is SHA-256
-{{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.  The connection ID used with HKDF-Expand-Label
-is the connection ID chosen by the client.
+{{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.  The connection ID used with
+HKDF-Expand-Label is the connection ID chosen by the client.
 
 The handshake salt is a 20 octet sequence shown in the figure in hexadecimal
 notation. Future versions of QUIC SHOULD generate a new salt value, thus
@@ -703,7 +703,7 @@ from the packet number.
 All QUIC packets other than Version Negotiation and Stateless Reset packets are
 protected with an AEAD algorithm {{!AEAD}}. Prior to establishing a shared
 secret, packets are protected with AEAD_AES_128_GCM and a key derived from the
-client's connection ID (see {{handshake-secrets}}).  This provides protection
+client's connection ID (see {{initial-secrets}}).  This provides protection
 against off-path attackers and robustness against QUIC version unaware
 middleboxes, but not against on-path attackers.
 
@@ -788,7 +788,7 @@ progressively decrypt the packet number.
 Before a TLS ciphersuite can be used with QUIC, a packet protection algorithm
 MUST be specifed for the AEAD used with that ciphersuite.  This document defines
 algorithms for AEAD_AES_128_GCM, AEAD_AES_128_CCM, AEAD_AES_256_GCM,
-AEAD_AES_256_CCM (all AES AEADs are defined in {{!RFC5116}}), and
+AEAD_AES_256_CCM (all AES AEADs are defined in {{!AEAD=RFC5116}}), and
 AEAD_CHACHA20_POLY1305 ({{!CHACHA=RFC7539}}).
 
 
@@ -871,7 +871,7 @@ ensure that TLS handshake messages are sent with the correct packet protection.
 ## Packet Protection for the TLS Handshake {#hs-protection}
 
 The initial exchange of packets that carry the TLS handshake are AEAD-protected
-using the handshake secrets generated as described in {{handshake-secrets}}.
+using the handshake secrets generated as described in {{initial-secrets}}.
 All TLS handshake messages up to the TLS Finished message sent by either
 endpoint use packets protected with handshake keys.
 
@@ -932,7 +932,7 @@ A HelloRetryRequest handshake message might be used to reject an initial
 ClientHello.  A HelloRetryRequest handshake message is sent in a Retry packet;
 any second ClientHello that is sent in response uses a Initial packet type.
 These packets are only protected with a predictable key (see
-{{handshake-secrets}}).  This is natural, because no shared secret will be
+{{initial-secrets}}).  This is natural, because no shared secret will be
 available when these messages need to be sent.  Upon receipt of a
 HelloRetryRequest, a client SHOULD cease any transmission of 0-RTT data; 0-RTT
 data will only be discarded by any server that sends a HelloRetryRequest.
@@ -968,7 +968,7 @@ packet with a matching KEY_PHASE.  Note that when 0-RTT is attempted the value
 of the KEY_PHASE bit will be different on packets sent by either peer.
 
 A receiving endpoint detects an update when the KEY_PHASE bit doesn't match what
-it is expecting.  It creates a new secret (see {{key-expansion}}) and the
+it is expecting.  It creates a new secret (see {{TLS13}}; Section 7.2) and the
 corresponding read key and IV.  If the packet can be decrypted and authenticated
 using these values, then the keys it uses for packet protection are also
 updated.  The next packet sent by the endpoint will then use the new keys.
@@ -1533,10 +1533,6 @@ values in the following registries:
   column is to be marked Yes.  The TLS 1.3 Column is to include CH
   and EE.
 
-* TLS Exporter Label Registry {{!TLS-REGISTRIES}} - IANA is requested to
-  register "EXPORTER-QUIC 0rtt" from {{zero-rtt-secrets}}; "EXPORTER-QUIC client
-  1rtt" and "EXPORTER-QUIC server 1-RTT" from {{one-rtt-secrets}}.  The DTLS
-  column is to be marked No.  The Recommended column is to be marked Yes.
 
 | Value | Error                     | Description           | Specification |
 |:------|:--------------------------|:----------------------|:--------------|
