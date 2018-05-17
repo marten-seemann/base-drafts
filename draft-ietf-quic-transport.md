@@ -3349,8 +3349,7 @@ The two type bits from a Stream ID therefore identify streams as summarized in
 | 0x3      | Server-Initiated, Unidirectional |
 {: #stream-id-types title="Stream ID Types"}
 
-The first bi-directional stream opened by the client is stream 4.
-(TODO: can we reclaim stream 0??).
+The first bi-directional stream opened by the client is stream 0.
 
 A QUIC endpoint MUST NOT reuse a Stream ID.  Streams can be used in any order.
 Streams that are used out of order result in opening all lower-numbered streams
