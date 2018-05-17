@@ -412,17 +412,20 @@ More information on key transitions is included in {{hs-protection}}.
 
 ## Interface to TLS
 
-As shown in {{schematic}}, the interface from QUIC to TLS consists of four
-primary functions: Handshake, Source Address Validation, Key Ready Events, and
-Secret Export.
+As shown in {{schematic}}, the interface from QUIC to TLS consists of three
+primary functions:
+
+- Sending and receiving handshake messages
+- Rekeying (both in and out)
+- Handshake state updates
 
 Additional functions might be needed to configure TLS.
 
 
-### Handshake Interface
+### Sending and Receiving Handshake Messages
 
 In order to drive the handshake, TLS depends on being able to send and receive
-handshake messages on stream 0.  There are two basic functions on this
+handshake messages. There are two basic functions on this
 interface: one where QUIC requests handshake messages and one where QUIC
 provides handshake packets.
 
@@ -431,18 +434,34 @@ Before starting the handshake QUIC provides TLS with the transport parameters
 
 A QUIC client starts TLS by requesting TLS handshake octets from
 TLS.  The client acquires handshake octets before sending its first packet.
+A QUIC server starts the process by providing TLS with the client's
+handshake octets.
 
-A QUIC server starts the process by providing TLS with stream 0 octets.
+At any given time, an endpoint will have a current sending encryption
+level and receiving encryption level. Each encryption level is
+associated with a different flow of bytes, which is reliably
+transmitted to the peer in CRYPTO frames. When TLS provides handshake
+octets to be sent, they are appended to the current flow and
+will eventually be transmitted under the then-current key.
 
-Each time that an endpoint receives data on stream 0, it delivers the octets to
-TLS if it is able.  Each time that TLS is provided with new data, new handshake
-octets are requested from TLS.  TLS might not provide any octets if the
-handshake messages it has received are incomplete or it has no data to send.
+When an endpoint receives a CRYPTO frame from the network, it proceeds
+as follows:
 
-At the server, when TLS provides handshake octets, it also needs to indicate
-whether the octets contain a HelloRetryRequest.  A HelloRetryRequest MUST always
-be sent in a Retry packet, so the QUIC server needs to know whether the octets
-are a HelloRetryRequest.
+- If the packet was in the current receiving encryption level, sequence
+  the data into the input flow as usual. As with STREAM frames,
+  The offset is used to find the proper location in the data sequence.
+  If the result of this process is that new data is available, then
+  it is delivered to TLS.
+
+- If the packet is from a previously installed encryption level, it
+  MUST not contain data which extends past the end of previously
+  received data in that flow. [TODO(ekr): Double check that this
+  can't happen]. Implementations MUST treat any violations of this
+  requirement as a connection error of type PROTOCOL_VIOLATION.
+
+Each time that TLS is provided with new data, new handshake octets are
+requested from TLS.  TLS might not provide any octets if the handshake
+messages it has received are incomplete or it has no data to send.
 
 Once the TLS handshake is complete, this is indicated to QUIC along with any
 final handshake octets that TLS needs to send.  TLS also provides QUIC with the
@@ -455,7 +474,7 @@ data is that the server might wish to provide additional or updated session
 tickets to a client.
 
 When the handshake is complete, QUIC only needs to provide TLS with any data
-that arrives on stream 0.  In the same way that is done during the handshake,
+that arrives in CRYPTO streams.  In the same way that is done during the handshake,
 new data is requested from TLS after providing received data.
 
 Important:
