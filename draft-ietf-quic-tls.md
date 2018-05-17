@@ -491,34 +491,32 @@ Important:
   STREAM frame that carries the Finished message in multiple packets.  This
   enables immediate server processing for those packets.
 
-### Key Ready Events
+### Encryption Level Changes
 
-TLS provides QUIC with signals when 0-RTT and 1-RTT keys are ready for use.
+At each change of encryption level in either direction, QUIC signals
+TLS, providing the new level and the encryption keys. It will also
 These events are not asynchronous, they always occur immediately after TLS is
 provided with new handshake octets, or after TLS produces handshake octets.
-
-When TLS completed its handshake, 1-RTT keys can be provided to QUIC.  On both
-client and server, this occurs after sending the TLS Finished message.
 
 This ordering means that there could be frames that carry TLS handshake messages
 ready to send at the same time that application data is available.  An
 implementation MUST ensure that TLS handshake messages are always sent in
 packets protected with handshake keys (see {{handshake-secrets}}).  Separate
-packets are required for data that needs protection from 1-RTT keys.
+packets are required for data that needs protection application data keys.
 
 If 0-RTT is possible, it is ready after the client sends a TLS ClientHello
 message or the server receives that message.  After providing a QUIC client with
-the first handshake octets, the TLS stack might signal that 0-RTT keys are
-ready.  On the server, after receiving handshake octets that contain a
+the first handshake octets, the TLS stack might signal the change to the
+the 0-RTT keys. On the server, after receiving handshake octets that contain a
 ClientHello message, a TLS server might signal that 0-RTT keys are available.
 
-1-RTT keys are used for packets in both directions.  0-RTT keys are only
-used to protect packets sent by the client.
+Note that although TLS only uses one encryption level at a time, QUIC
+may use more than one level. For instance, after sending its Finished
+message (using a CRYPTO frame in Handshake encryption) may send STREAM
+data (in 1-RTT encryption). However, if the Finished is lost, the client
+would have to retransmit the Finished, in which case it would use
+Handshake encryption.
 
-
-### Secret Export
-
-Details how secrets are exported from TLS are included in {{key-expansion}}.
 
 
 ### TLS Interface Summary
@@ -529,11 +527,11 @@ client and server.
 ~~~
 Client                                                    Server
 
-Get Handshake
-0-RTT Key Ready
+Handshake Received (Initial
+Rekey out to 0-RTT Keys
                       --- send/receive --->
                                               Handshake Received
-                                                 0-RTT Key Ready
+                                          Rekey in to 0-RTT keys
                                                    Get Handshake
                                                 1-RTT Keys Ready
                      <--- send/receive ---
