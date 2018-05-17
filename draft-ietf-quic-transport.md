@@ -591,7 +591,7 @@ number increases monotonically in that space, see ({{packet-numbers}}).
 
 The payload of an Initial packet conveys a CRYPTO_HS frame (or frames)
 containing a cryptographic handshake message.  This CRYPTO_HS frame
-always begins at an offset of 0 (see {{handshake}}) and the complete
+always begins at an offset of 0 (see {{handshake}}). The client's complete
 cryptographic handshake message MUST fit in a single packet (see
 {{handshake}}).
 
