@@ -844,7 +844,7 @@ server can send 0-RTT data until it receives all of the server's handshake
 messages.  A client SHOULD stop sending 0-RTT data if it receives an indication
 that 0-RTT data has been rejected.
 
-A server MUST NOT use 0-RTT keys to protect packets. This implies that the
+A server MUST NOT use 0-RTT keys to protect packets.
 
 If a server rejects 0-RTT, then the TLS stream will not include any TLS records
 protected with 0-RTT keys.
