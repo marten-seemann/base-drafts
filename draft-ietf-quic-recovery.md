@@ -461,7 +461,7 @@ and sometimes no overhead.  The acknowledgement of the bundled packet
 allows QUIC recovery to use early retransmit to determine if any prior
 packets in that space were lost without waiting for timeouts.
 
-This optimization is particularly useful when: 
+This optimization is particularly useful when:
  * Retransmitting the client’s INITIAL, which must be padded to a full
    sized packet, so the datagram typically has extra space to retransmit
    some outstanding 0RTT data.
@@ -474,7 +474,7 @@ This optimization is particularly useful when:
 
 ### Implicit Acknowledgements
 
-Handshake data may be cancelled by handshake state transitions.  
+Handshake data may be cancelled by handshake state transitions.
 
 In particular:
  * A peer processing data in a HANDSHAKE packet indicates
@@ -733,7 +733,7 @@ Pseudocode for OnAckReceived and UpdateRtt follow:
     // TODO: This is incorrect for the INITIAL/HANDSHAKE
 
     if (ack.IsEmpty() &&
-        time_of_last_sent_handshake_packet < 
+        time_of_last_sent_handshake_packet <
           time_of_last_sent_retransmittable_packet):
       RetransmitAllHandshakeData();
     largest_acked_packet = ack.largest_acked
