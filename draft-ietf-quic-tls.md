@@ -299,7 +299,7 @@ packet protection being called out specially.
 
 
 
-# Carrying TLS Messages
+# Carrying TLS Messages {#carrying-tls}
 
 QUIC carries TLS handshake data in CRYPTO frames, each of which
 consists of a contiguous block of handshake data (identified by an
@@ -955,36 +955,29 @@ proposes that all strategies are possible depending on the type of message.
 ## Unprotected Packets Prior to Handshake Completion {#pre-hs-unprotected}
 
 This section describes the handling of messages that are sent and received prior
-to the completion of the TLS handshake.
+to the completion of the TLS handshake (i.e., those with Initial or Handshake
+packet types).
 
 Sending and receiving unprotected messages is hazardous.  Unless expressly
 permitted, receipt of an unprotected message of any kind MUST be treated as a
 fatal error.
 
 
-### STREAM Frames
+### CRYPTO Frames
 
-`STREAM` frames for stream 0 are permitted.  These carry the TLS handshake
-messages.  Once 1-RTT keys are available, unprotected `STREAM` frames on stream
-0 can be ignored.
-
-Receiving unprotected `STREAM` frames for other streams MUST be treated as a
-fatal error.
-
+`CRYPTO` frames are permitted because they carry the TLS handshake
+messages. 
 
 ### ACK Frames
 
-`ACK` frames are permitted prior to the handshake being complete.  Information
+`ACK` frames are permitted prior to the handshake being complete. Information
 learned from `ACK` frames cannot be entirely relied upon, since an attacker is
 able to inject these packets.  Timing and packet retransmission information from
 `ACK` frames is critical to the functioning of the protocol, but these frames
-might be spoofed or altered.
-
-Endpoints MUST NOT use an `ACK` frame in an unprotected packet to acknowledge
-packets that were protected by 0-RTT or 1-RTT keys.  An endpoint MUST treat
-receipt of an `ACK` frame in an unprotected packet that claims to acknowledge
-protected packets as a connection error of type OPTIMISTIC_ACK.  An endpoint
-that can read protected data is always able to send protected data.
+might be spoofed or altered. As noted in {{carrying-tls}}, ACK frames MUST
+NOT acknowledge frames that appeared in a different packet number space from
+that in which the ACK was sent. An endpoint must treat the receipt of such an ACK
+as a connection error of type PROTOCOL_VIOLATION.
 
 Note:
 
@@ -994,46 +987,16 @@ Note:
   necessary to remove packet protection cannot be derived until the client
   receives all server handshake messages.
 
-An endpoint SHOULD use data from `ACK` frames carried in unprotected packets or
-packets protected with 0-RTT keys only during the initial handshake.  All `ACK`
-frames contained in unprotected packets that are received after successful
-receipt of a packet protected with 1-RTT keys MUST be discarded.  An endpoint
-SHOULD therefore include acknowledgments for unprotected and any packets
-protected with 0-RTT keys until it sees an acknowledgment for a packet that is
-both protected with 1-RTT keys and contains an `ACK` frame.
-
-
-### Updates to Data and Stream Limits
-
-`MAX_DATA`, `MAX_STREAM_DATA`, `BLOCKED`, `STREAM_BLOCKED`, and `MAX_STREAM_ID`
-frames MUST NOT be sent unprotected.
-
-Though data is exchanged on stream 0, the initial flow control window on that
-stream is sufficiently large to allow the TLS handshake to complete.  This
-limits the maximum size of the TLS handshake and would prevent a server or
-client from using an abnormally large certificate chain.
-
-Stream 0 is exempt from the connection-level flow control window.
-
-Consequently, there is no need to signal being blocked on flow control.
-
-Similarly, there is no need to increase the number of allowed streams until the
-handshake completes.
 
 
 ### Handshake Failures
+
+[TODO(ekr@rtfm.com): Clean up.
 
 The `CONNECTION_CLOSE` frame MAY be sent by either endpoint in a Handshake
 packet.  This allows an endpoint to signal a fatal error with connection
 establishment.  A `STREAM` frame carrying a TLS alert MAY be included in the
 same packet.
-
-
-### Address Verification
-
-In order to perform source-address verification before the handshake is
-complete, `PATH_CHALLENGE` and `PATH_RESPONSE` frames MAY be exchanged
-unprotected.
 
 
 ### Denial of Service with Unprotected Packets
