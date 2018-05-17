@@ -297,6 +297,9 @@ packet protection being called out specially.
 ~~~
 {: #schematic title="QUIC and TLS Interactions"}
 
+Unlike TLS over TCP, with QUIC applications which want to send data do not
+send it through TLS "application_data" records. Rather, they send it
+as QUIC STREAM frames which are then carried in QUIC packets.
 
 
 # Carrying TLS Messages {#carrying-tls}
@@ -333,7 +336,7 @@ encryption level are the same in QUIC as in TLS over TCP:
 
 Because packets may be reordered on the wire, QUIC uses the packet
 type to indicate which level a given packet was encrypted
-under [TBD: Table needed here?]. When multiple packets of
+under [TODO: Table needed here?]. When multiple packets of
 different encryptions need to be sent, endpoints SHOULD use
 compound packets to send them in the same UDP datagram.
 
@@ -368,7 +371,7 @@ Client                                                   Server
 
 In {{quic-tls-handshake}}, symbols mean:
 
-* "<" and ">" enclose packets protected with obfuscation keys [REF]
+* "<" and ">" enclose packets protected with Initial keys {{initial-secrets}}.
 
 * "(" and ")" enclose packets that are protected with 0-RTT handshake or
   application keys.
@@ -471,12 +474,6 @@ QUIC, providing the new level and the encryption keys. It will also
 These events are not asynchronous, they always occur immediately after TLS is
 provided with new handshake octets, or after TLS produces handshake octets.
 
-This ordering means that there could be frames that carry TLS handshake messages
-ready to send at the same time that application data is available.  An
-implementation MUST ensure that TLS handshake messages are always sent in
-packets protected with handshake keys (see {{initial-secrets}}).  Separate
-packets are required for data that needs protection application data keys.
-
 If 0-RTT is possible, it is ready after the client sends a TLS ClientHello
 message or the server receives that message.  After providing a QUIC client with
 the first handshake octets, the TLS stack might signal the change to the
@@ -495,7 +492,8 @@ Handshake encryption.
 ### TLS Interface Summary
 
 {{exchange-summary}} summarizes the exchange between QUIC and TLS for both
-client and server.
+client and server. Each arrow is tagged with the encryption level used for
+that transmission.
 
 ~~~
 Client                                                    Server
@@ -615,6 +613,16 @@ When 0-RTT is rejected, all connection characteristics that the client assumed
 might be incorrect.  This includes the choice of application protocol, transport
 parameters, and any application configuration.  The client therefore MUST reset
 the state of all streams, including application state bound to those streams.
+
+## HelloRetryRequest
+
+TLS's HelloRetryRequest feature ({{TLS13}; Section 4.1.4) can be used
+to correct a client's incorrect KeyShare extension as well as for
+a stateless round trip check. From the perspective of QUIC, this just
+looks like additional messages carried in the Initial encryption level.
+Although it is in principle possible to use this feature for address
+verification, QUIC implementations SHOULD instead use the RETRY
+feature ([TODO: REF]).
 
 
 ## TLS Errors
