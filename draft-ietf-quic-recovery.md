@@ -284,9 +284,9 @@ and Retransmission Timeout mechanisms.
 
 ### Crypto Handshake Timeout
 
-CRYPTO data is critical to QUIC transport and crypto negotiation, so a
+CRYPTO_HS data is critical to QUIC transport and crypto negotiation, so a
 more aggressive timeout is used to retransmit it.  Below, the word handshake
-packet is used to refer to packets containing CRYPTO data, not only packets
+packet is used to refer to packets containing CRYPTO_HS data, not only packets
 with the long header packet type HANDSHAKE.
 
 The initial handshake timeout SHOULD be set to twice the initial RTT.
@@ -298,10 +298,10 @@ connection's final smoothed RTT value as the resumed connection's initial RTT.
 If no previous RTT is available, or if the network changes, the initial RTT
 SHOULD be set to 100ms.
 
-When CRYPTO frames are sent, the sender SHOULD set an alarm for the handshake
+When CRYPTO_HS frames are sent, the sender SHOULD set an alarm for the handshake
 timeout period.
 
-When the alarm fires, the sender MUST retransmit all unacknowledged CRYPTO
+When the alarm fires, the sender MUST retransmit all unacknowledged CRYPTO_HS
 data by calling RetransmitAllUnackedHandshakeData(). On each
 consecutive firing of the handshake alarm without receiving an
 acknowledgement for a new packet, the sender SHOULD double the handshake
@@ -467,7 +467,7 @@ This optimization is particularly useful when:
    some outstanding 0RTT data.
  * The server sends 1RTT data soon after the final handshake flight
    (containing ServerFinished) and can proactively retransmit an empty
-   CRYPTO frame bundled with one or more 1RTT packets.
+   CRYPTO_HS frame bundled with one or more 1RTT packets.
  * The clients sends 1RTT data soon after the final TLS flight
    (containing the client finished) and can proactively retransmit the
    final client flight with one or more 1RTT packets.
@@ -479,7 +479,7 @@ Handshake data may be cancelled by handshake state transitions.
 In particular:
  * A peer processing data in a HANDSHAKE packet indicates
    the INITIAL packet(s) have been delivered.
- * A peer processing 1RTT packets indicates all CRYPTO data in
+ * A peer processing 1RTT packets indicates all CRYPTO_HS data in
    HANDSHAKE packets has been delivered.
 
 ## Generating Acknowledgements
@@ -514,7 +514,7 @@ after processing incoming packets.
 
 In order to quickly complete the handshake and avoid spurious
 retransmissions due to handshake alarm timeouts, acknowledging packets
-containing CRYPTO frames should use a very short ack delay, such as 1ms.
+containing CRYPTO_HS frames should use a very short ack delay, such as 1ms.
 ACK frames may be sent immediately when the crypto stack indicates all
 data for that encryption level has been received.
 
@@ -610,7 +610,7 @@ time_of_last_sent_retransmittable_packet:
 : The time the most recent retransmittable packet was sent.
 
 time_of_last_sent_handshake_packet:
-: The time the most recent packet containing a CRYPTO frame was sent.
+: The time the most recent packet containing a CRYPTO_HS frame was sent.
 
 largest_sent_packet:
 : The packet number of the most recently sent packet.
