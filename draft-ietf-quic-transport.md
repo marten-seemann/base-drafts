@@ -774,7 +774,7 @@ Packet numbers are divided into 3 spaces in QUIC:
 - Initial space: All Initial packets {{packet-initial}} are in this space.
 - Handshake space: All handshake packets {{packet-handshake}} are in this space.
 - Application data space: All 0-RTT and 1-RTT encrypted packets
-	{{packet-protected}} are in this space.
+  {{packet-protected}} are in this space.
 
 As descibed in {{QUIC-TLS}}, each packet type uses different encryption keys.
 
@@ -3146,9 +3146,9 @@ containing that information is acknowledged.
   STOP_SENDING frame, is sent until the receive stream enters either a "Data
   Recvd" or "Reset Recvd" state, see {{solicited-state-transitions}}.
 
-* Connection close signals, including those that use CONNECTION_CLOSE, CRYPTO_CLOSE,
-  and APPLICATION_CLOSE frames, are not sent again when packet loss is detected, but
-  as described in {{termination}}.
+* Connection close signals, including those that use CONNECTION_CLOSE,
+  CRYPTO_CLOSE, and APPLICATION_CLOSE frames, are not sent again when
+  packet loss is detected, but as described in {{termination}}.
 
 * The current connection maximum data is sent in MAX_DATA frames. An updated
   value is sent in a MAX_DATA frame if the packet containing the most recently
@@ -3984,7 +3984,8 @@ endpoint that continues to receive data for a terminated connection is
 to use the stateless reset process ({{stateless-reset}}).
 
 An endpoint that receives an invalid CONNECTION_CLOSE, CRYPTO_CLOSE,
-or APPLICATION_CLOSE frame MUST NOT signal the existence of the error to its peer.
+or APPLICATION_CLOSE frame MUST NOT signal the existence of the error
+to its peer.
 
 
 ## Stream Errors

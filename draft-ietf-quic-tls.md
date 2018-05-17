@@ -322,8 +322,8 @@ In general, the rules for which data can appear in packets of which
 encryption level are the same in QUIC as in TLS over TCP:
 
 - CRYPTO frames MAY appear in packets of any encryption level.
-- CONNECTION_CLOSE and CRYPTO_CLOSE MAY appear in packets of any encryption level
-  other than 0-RTT.
+- CONNECTION_CLOSE and CRYPTO_CLOSE MAY appear in packets of any
+  encryption level other than 0-RTT.
 - PADDING frames MAY appear in packets of any encryption level.
 - ACK frames MAY appear in packets of any encryption level, but
   MUST only acknowledge packets which appeared in that encryption
