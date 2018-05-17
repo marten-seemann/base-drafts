@@ -92,7 +92,7 @@ when, and only when, they appear in all capitals, as shown here.
 All transmissions in QUIC are sent with a packet-level header, which indicates
 an encryption level and includes a packet sequence number
 (referred to below as a packet number).  The encryption level indicates the
-packet number space, as described in the {{QUIC-TRANSPORT}} docuemnt.  Packet
+packet number space, as described in the {{QUIC-TRANSPORT}} document.  Packet
 numbers never repeat within an packet number space for the lifetime of a
 connection.  Packet numbers are monotonically increasing within a space,
 preventing ambiguity.
@@ -132,10 +132,10 @@ spaces allows the recovery mechanisms to work without special cases to avoid
 spuriously retransmitting un-processable packets.  Multiple recovery contexts
 creates multiple tails, and tails tend to require costly timeouts to recover.
 The optimizations({{optimizations}}) section below describes
-some optimization to allow recovering from these tails as quickly as a single
+some optimizations to allow recovering from these tails as quickly as a single
 packet number space without making assumptions about receiver behavior.
 All packet number spaces are expected to traverse a single path, so QUIC
-uses unified congestion control and RTT measurement across the spaces.
+uses a unified congestion control and RTT measurement across the spaces.
 
 ### Monotonically Increasing Packet Numbers
 
@@ -153,7 +153,7 @@ that the packet was sent later, and a lower QUIC packet number signifies that
 the packet was sent earlier.  When a packet containing frames is deemed lost,
 QUIC rebundles necessary frames in a new packet with a new packet number,
 removing ambiguity about which packet is acknowledged when an ACK is received.
-Consequently, more accurate RTT measurements can be made, spurious 
+Consequently, more accurate RTT measurements can be made, spurious
 retransmissions are trivially detected, and mechanisms such as Fast Retransmit
 can be applied universally, based only on packet number.
 
@@ -443,13 +443,12 @@ undecryptable packets are received, even if those received packets are
 not buffered for later decryption.  The small delay allows for cases when
 0RTT packets are reordered in front of the INITIAL, which is not uncommon
 on networks that prioritize small packets.  When an empty ACK frame is
-received, immediately retransmit the missing handshake packet(s) as
-though the handshake timer had fired and cancel re-arm the handshake
-timer after retransmitting the handshake data.  If the missing handshake 
-data was timer retransmitted after the packets that triggered the
-empty ack, then the empty ack should be ignored.
+received, a sender would immediately retransmit the missing handshake
+packet(s) as though the handshake timer had fired and re-arm the handshake
+timer.  If the missing handshake data was timer retransmitted after the
+packets that triggered the empty ack, then the empty ack should be ignored.
 
-And empty ACK frame does not acknowledge a new packet, and in cases
+An empty ACK frame does not acknowledge a new packet, and in cases
 when multiple packets are outstanding, the RTT signal is ambiguous,
 so it should not be used as an RTT signal.  It MAY change the connection’s
 default RTT if no RTT measurements have been taken.
