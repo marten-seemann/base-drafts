@@ -1025,6 +1025,41 @@ However, any tampering with the parameters will be detected
 when the handshake completes.
 
 
+## QUIC Max Crypto Data Extension {#max_crypto_data}
+
+When QUIC provides TLS messages via the CRYPTO_HS frame, one TLS message may be
+fragmented across different packets.  Thus TLS might have to buffer data.  TLS
+implementations may choose to limit the data they buffer before the handshake is
+completed and close the connection on receiving too much data.
+
+To communicate the maximum amount of data that TLS will allow to be sent in
+CRYPTO_HS frames, TLS may use the `max_crypto_data` extension, defined as
+follows:
+
+~~~
+   enum {
+      max_crypto_data(27), (65535)
+   } ExtensionType;
+
+   struct {
+      uint32 max_crypto_data;
+   } MaxCryptoData;
+~~~
+
+max_crypto_data:
+
+: The maximum number of bytes that can be sent in CRYPTO_HS frames
+
+The `extension_data` field of the extension contains the MaxCryptoData
+structure.
+
+Implementations SHOULD send this extension.  Receivers do not need to process
+this extension.  If the sender cannot fit the handshake data into this limit,
+the handshake will not be proceed.  The purpose of this extension is to provide
+a facility to debug issues during the handshake and also allow future
+extensibility of the protocol to larger message sizes.
+
+
 # Security Considerations
 
 There are likely to be some real clangers here eventually, but the current set
@@ -1124,10 +1159,11 @@ values in the following registries:
 
 * TLS ExtensionsType Registry
   {{!TLS-REGISTRIES=I-D.ietf-tls-iana-registry-updates}} - IANA is to register
-  the quic_transport_parameters extension found in {{quic_parameters}}.
-  Assigning 26 to the extension would be greatly appreciated.  The Recommended
-  column is to be marked Yes.  The TLS 1.3 Column is to include CH
-  and EE.
+  the quic_transport_parameters extension found in {{quic_parameters}} as well
+  as the max_crypto_data extension found in {{max_crypto_data}}
+  Assigning 26 and 27 to the extensions respectively would be greatly
+  appreciated.  The Recommended column is to be marked Yes.  The TLS 1.3 Column
+  is to include CH and EE.
 
 
 --- back

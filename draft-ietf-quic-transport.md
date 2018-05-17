@@ -3935,6 +3935,14 @@ errors is not mandatory, but only because requiring that an endpoint generate
 these errors also means that the endpoint needs to maintain the final offset
 state for closed streams, which could mean a significant state commitment.
 
+## Flow control of CRYPTO_HS data {#flow-control-crypto}
+
+Data sent in CRYPTO_HS frames is not flow controlled in the same way as STREAM
+frames.  QUIC relies on the cryptographic protocol implementation to avoid
+excessive buffering of data, see {{QUIC-TLS}}.  The implementation SHOULD
+provide an interface to QUIC to tell it about its buffering limits so that there
+is no excessive buffering at multiple layers.
+
 
 # Error Handling
 
