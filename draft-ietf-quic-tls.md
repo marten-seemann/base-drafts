@@ -283,7 +283,7 @@ packet protection being called out specially.
 |            |<- Handshake Messages ->|            |
 |            |<---- 0-RTT Keys -------|            |
 |            |<--- Handshake Keys-----|            |
-|   QUIC     |<---- 1-RTT Keys ------>|    TLS     |
+|   QUIC     |<---- 1-RTT Keys -------|    TLS     |
 |            |<--- Handshake Done ----|            |
 +------------+                        +------------+
  |         ^
