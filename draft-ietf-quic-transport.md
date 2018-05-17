@@ -563,13 +563,14 @@ connection attempt).  The randomized Destination Connection ID is used to
 determine packet protection keys.
 
 A server sends its first Initial packet in response to a Client Initial.  A
-server may send multiple Initial packets.  The Cryptographic key exchange could
+server may send multiple Initial packets.  The cryptographic key exchange could
 require multiple round trips or we might perform retransmissions of this data.
 
-The Destination Connection ID field in the server's Initial packet contains a
-connection ID that is chosen by the recipient of the packet; the Source
-Connection ID includes the connection ID that the sender of the packet wishes to
-use (see {{connection-id}}).
+The Destination Connection ID field in the server's Initial packet
+contains a connection ID that is chosen by the recipient of the packet
+(i.e., the client); the Source Connection ID includes the connection
+ID that the sender of the packet wishes to use (see
+{{connection-id}}).
 
 On receiving the first Server Initial packet the client uses the Source
 Connection ID supplied by the server as the Destination Connection ID for
@@ -775,7 +776,7 @@ can be processed and ACKed.  Initial packets can only be sent with
 Initial encryption keys and ACKed in packets which are also Initial packets.
 Similarly Handshake packets can only be sent and acked in Handshake packets.
 
-This separation enforces cryptographic separation between the data sent in the
+This enforces cryptographic separation between the data sent in the
 different packet sequence number spaces.  As a result, each packet number space
 can start at the same packet number 0.  Each subsequent packets sent in the
 same packet number space MUST increase the packet number by at least one.
@@ -1125,7 +1126,7 @@ available to the cryptographic handshake protocol.
 The CRYPTO_HS frame can be sent in different packet number spaces.  With each
 packet number space, the CRYPTO_HS frame resets its offset to 0.
 
-Details of how TLS is integrated with QUIC is provided in {{QUIC-TLS}}.
+Details of how TLS is integrated with QUIC are provided in {{QUIC-TLS}}.
 
 
 ## Transport Parameters
@@ -2847,7 +2848,7 @@ received packets in preference to packets received in the past.
 ### ACK Frames and Packet Protection
 
 ACK frames MUST only be carried in a packet that has the same packet number
-space as the packet being ACKed.
+space as the packet being ACKed (see {{packet-protected}}).
 
 For instance, packets that are protected with 1-RTT keys MUST be acknowledged in
 packets that are also protected with 1-RTT keys.
@@ -2858,13 +2859,8 @@ unable to use these acknowledgments if the server cryptographic handshake
 messages are delayed or lost.  Note that the same limitation applies to other
 data sent by the server protected by the 1-RTT keys.
 
-Unprotected Initial packets that carry the initial cryptographic handshake
-messages, MUST be acknowledged in unprotected packets.  Unprotected packets are
-vulnerable to falsification or modification.
-
-An endpoint SHOULD acknowledge packets containing cryptographic handshake
-messages in the next unprotected packet that it sends.
-
+Implementations SHOULD aggressively ACK packets containing CRYPTO_HS frames.
+See {{QUIC-RECOVERY}}; Section 3.5.1.
 
 ## PATH_CHALLENGE Frame {#frame-path-challenge}
 
@@ -3040,7 +3036,7 @@ CRYPTO_HS stream of data.
 
 While CRYPTO_HS the frame looks a lot like a STREAM frames, it should
 not be confused with a STREAM frame.  Unlike a STREAM frame which
-carries a single stream of data, CRYPTO_HS frames carry differnent
+carries a single stream of data, CRYPTO_HS frames carry different
 streams of data in different packet number spaces.  CRYPTO_HS frames
 also lack a FIN bit.
 
