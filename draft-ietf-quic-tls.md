@@ -986,16 +986,6 @@ Note:
 
 
 
-### Handshake Failures
-
-[TODO(ekr@rtfm.com): Clean up.
-
-The `CONNECTION_CLOSE` frame MAY be sent by either endpoint in a Handshake
-packet.  This allows an endpoint to signal a fatal error with connection
-establishment.  A `STREAM` frame carrying a TLS alert MAY be included in the
-same packet.
-
-
 ## Use of 0-RTT Keys {#using-early-data}
 
 If 0-RTT keys are available (see {{enable-0rtt}}), the lack of replay protection
