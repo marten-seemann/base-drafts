@@ -340,7 +340,7 @@ compound packets to send them in the same UDP datagram.
 ## Handshake and Setup Sequence
 
 The integration of QUIC with a TLS handshake is shown in more detail in
-{{quic-tls-handshake}}. 
+{{quic-tls-handshake}}.
 
 ~~~
 Client                                                 Server
@@ -348,7 +348,7 @@ Client                                                 Server
 <CRYPTO[ClientHello]>  --------->
 
 (STREAM[0-RTTData])    --------->
-       
+
                        <---------   <ACK, CRYPTO[ServerHello]>
 
                        <---------  {CRYPTO[EncryptedExtensions,
@@ -377,7 +377,7 @@ In {{quic-tls-handshake}}, symbols mean:
 * CRYPTO[...], STREAM[...] and ACK indicate QUIC frames.
 
 If 0-RTT is not attempted, then the client does not send packets protected by
-the 0-RTT key. 
+the 0-RTT key.
 
 
 ## Interface to TLS
@@ -585,6 +585,20 @@ A server MUST NOT use post-handshake client authentication (see Section 4.6.2 of
 {{!TLS13}}).
 
 
+## Enabling 0-RTT {#enable-0rtt}
+
+[TODO(ekr@rtfm.com): I'm not sure that this is correct any more.]
+In order to be usable for 0-RTT, TLS MUST provide a NewSessionTicket message
+that contains the "max_early_data" extension with the value 0xffffffff; the
+amount of data which the client can send in 0-RTT is controlled by the
+"initial_max_data" transport parameter supplied by the server.  A client MUST
+treat receipt of a NewSessionTicket that contains a "max_early_data" extension
+with any other value as a connection error of type PROTOCOL_VIOLATION.
+
+Early data within the TLS connection MUST NOT be used.  As it is for other TLS
+application data, a server MUST treat receiving early data on the TLS connection
+as a connection error of type PROTOCOL_VIOLATION.
+
 ## Rejecting 0-RTT
 
 A server rejects 0-RTT by rejecting 0-RTT at the TLS layer.  This results in
@@ -602,6 +616,10 @@ the state of all streams, including application state bound to those streams.
 
 ## TLS Errors
 
+[TODO(ekr@rtfm.com): This is not going to work any more. Perhaps use
+CONNECTION_CLOSE or APPLICATION_CLOSE?)]
+
+
 Errors in the TLS connection SHOULD be signaled using TLS alerts on stream 0.  A
 failure in the handshake MUST be treated as a QUIC connection error of type
 TLS_HANDSHAKE_FAILED.  Once the handshake is complete, an error in the TLS
@@ -612,94 +630,29 @@ TLS_FATAL_ALERT_RECEIVED respectively.
 
 # QUIC Packet Protection {#packet-protection}
 
-QUIC packet protection provides authenticated encryption of packets.  This
-provides confidentiality and integrity protection for the content of packets
-(see {{aead}}).  Packet protection uses keys that are exported from the TLS
-connection (see {{key-expansion}}).
-
-Different keys are used for QUIC packet protection and TLS record protection.
-TLS handshake messages are protected solely with TLS record protection,
-but post-handshake messages are redundantly protected with
-both the QUIC packet protection and the TLS record protection. These messages
-are limited in number, and so the additional overhead is small.
+As with TLS over TCP QUIC encrypts packets with keys derived from the TLS
+handshake, using the AEAD algorithm negotiated by TLS.
 
 
-## Installing New Keys {#new-key}
+## QUIC Packet Encryption Keys {#encryption-keys}
 
-As TLS reports the availability of keying material, the packet protection keys
-and initialization vectors (IVs) are updated (see {{key-expansion}}).  The
-selection of AEAD function is also updated to match the AEAD negotiated by TLS.
+QUIC derives packet encryption keys in the same way as TLS 1.3.
+Each encryption level/direction pair has a secret value, which
+is then used to derive the traffic keys using as described
+in {{TLS 1.3}}; Section 7.3.
 
-For packets other than any handshake packets (see {{hs-protection}}), once a
-change of keys has been made, packets with higher packet numbers MUST be sent
-with the new keying material.  The KEY_PHASE bit on these packets is inverted
-each time new keys are installed to signal the use of the new keys to the
-recipient (see {{key-phases}} for details).
+The keys for the Initial encryption level are computed based on
+the client's first Destination Connection Id, as described in
+{{initial-secrets}}.
 
-An endpoint retransmits stream data in a new packet.  New packets have new
-packet numbers and use the latest packet protection keys.  This simplifies key
-management when there are key updates (see {{key-update}}).
+The keys for the remaining encryption level are computed in the same
+fashion as the corresponding TLS keys (see {{TLS 1.3}}; Section 7),
+except that the label for HKDF-Expand-Label uses the prefix "quic "
+rather than "tls 13". The purpose of this change is to provide key
+separation between TLS and QUIC, so that TLS stacks can avoid
+exposing TLS record protection keys.
 
-
-## Enabling 0-RTT {#enable-0rtt}
-
-In order to be usable for 0-RTT, TLS MUST provide a NewSessionTicket message
-that contains the "max_early_data" extension with the value 0xffffffff; the
-amount of data which the client can send in 0-RTT is controlled by the
-"initial_max_data" transport parameter supplied by the server.  A client MUST
-treat receipt of a NewSessionTicket that contains a "max_early_data" extension
-with any other value as a connection error of type PROTOCOL_VIOLATION.
-
-Early data within the TLS connection MUST NOT be used.  As it is for other TLS
-application data, a server MUST treat receiving early data on the TLS connection
-as a connection error of type PROTOCOL_VIOLATION.
-
-
-## QUIC Key Expansion {#key-expansion}
-
-QUIC uses a system of packet protection secrets, keys and IVs that are modelled
-on the system used in TLS {{!TLS13}}.  The secrets that QUIC uses
-as the basis of its key schedule are obtained using TLS exporters (see Section
-7.5 of {{!TLS13}}).
-
-
-### QHKDF-Expand
-
-QUIC uses the Hash-based Key Derivation Function (HKDF) {{!HKDF=RFC5869}} with
-the same hash function negotiated by TLS for key derivation.  For example, if
-TLS is using the TLS_AES_128_GCM_SHA256, the SHA-256 hash function is used.
-
-Most key derivations in this document use the QHKDF-Expand function, which uses
-the HKDF expand function and is modelled on the HKDF-Expand-Label function from
-TLS 1.3 (see Section 7.1 of {{!TLS13}}). QHKDF-Expand differs from
-HKDF-Expand-Label in that it uses a different base label and omits the Context
-argument.
-
-~~~
-QHKDF-Expand(Secret, Label, Length) =
-   HKDF-Expand(Secret, QhkdfExpandInfo, Length)
-~~~
-
-The HKDF-Expand function used by QHKDF-Expand uses the PRF hash function
-negotiated by TLS, except for handshake secrets and keys derived from them (see
-{{handshake-secrets}}).
-
-Where the `info` parameter of HKDF-Expand is an encoded `QhkdfExpandInfo`
-structure:
-
-~~~
-struct {
-   uint16 length = Length;
-   opaque label<6..255> = "QUIC " + Label;
-} QhkdfExpandInfo;
-~~~
-
-For example, assuming a hash function with a 32 octet output, derivation for a
-client packet protection key would use HKDF-Expand with an `info` parameter of
-0x00200851554943206b6579.
-
-
-### Handshake Secrets {#handshake-secrets}
+### Initial Secrets {#initial-secrets}
 
 Packets that carry the TLS handshake (Initial, Retry, and Handshake) are
 protected with a secret derived from the Destination Connection ID field from
@@ -711,13 +664,13 @@ handshake_secret =
     HKDF-Extract(handshake_salt, client_dst_connection_id)
 
 client_handshake_secret =
-   QHKDF-Expand(handshake_secret, "client hs", Hash.length)
+   HKDF-Expand-Label(handshake_secret, "client hs", Hash.length)
 server_handshake_secret =
-   QHKDF-Expand(handshake_secret, "server hs", Hash.length)
+   HKDF-Expand-Label(handshake_secret, "server hs", Hash.length)
 ~~~
 
 The hash function for HKDF when deriving handshake secrets and keys is SHA-256
-{{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.  The connection ID used with QHKDF-Expand
+{{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.  The connection ID used with HKDF-Expand-Label
 is the connection ID chosen by the client.
 
 The handshake salt is a 20 octet sequence shown in the figure in hexadecimal
@@ -733,116 +686,6 @@ Note:
   ID field.  In this case, the handshake keys provide no assurance to the client
   that the server received its packet; the client has to rely on the exchange
   that included the Retry packet for that property.
-
-
-### 0-RTT Secret {#zero-rtt-secrets}
-
-0-RTT keys are those keys that are used in resumed connections prior to the
-completion of the TLS handshake.  Data sent using 0-RTT keys might be replayed
-and so has some restrictions on its use, see {{using-early-data}}.  0-RTT keys
-are used after sending or receiving a ClientHello.
-
-The secret is exported from TLS using the exporter label "EXPORTER-QUIC 0rtt"
-and an empty context.  The size of the secret MUST be the size of the hash
-output for the PRF hash function negotiated by TLS.  This uses the TLS
-early_exporter_secret.  The QUIC 0-RTT secret is only used for protection of
-packets sent by the client.
-
-~~~
-client_0rtt_secret =
-   TLS-Early-Exporter("EXPORTER-QUIC 0rtt", "", Hash.length)
-~~~
-
-
-### 1-RTT Secrets {#one-rtt-secrets}
-
-1-RTT keys are used by both client and server after the TLS handshake completes.
-There are two secrets used at any time: one is used to derive packet protection
-keys for packets sent by the client, the other for packet protection keys on
-packets sent by the server.
-
-The initial client packet protection secret is exported from TLS using the
-exporter label "EXPORTER-QUIC client 1rtt"; the initial server packet protection
-secret uses the exporter label "EXPORTER-QUIC server 1rtt".  Both exporters use
-an empty context.  The size of the secret MUST be the size of the hash output
-for the PRF hash function negotiated by TLS.
-
-~~~
-client_pp_secret<0> =
-   TLS-Exporter("EXPORTER-QUIC client 1rtt", "", Hash.length)
-server_pp_secret<0> =
-   TLS-Exporter("EXPORTER-QUIC server 1rtt", "", Hash.length)
-~~~
-
-These secrets are used to derive the initial client and server packet protection
-keys.
-
-
-### Updating 1-RTT Secrets
-
-After a key update (see {{key-update}}), the 1-RTT secrets are updated using
-QHKDF-Expand.  Updated secrets are derived from the existing packet protection
-secret.  A Label parameter of "client 1rtt" is used for the client secret and
-"server 1rtt" for the server.  The Length is the same as the native output of
-the PRF hash function.
-
-~~~
-client_pp_secret<N+1> =
-  QHKDF-Expand(client_pp_secret<N>, "client 1rtt", Hash.length)
-server_pp_secret<N+1> =
-  QHKDF-Expand(server_pp_secret<N>, "server 1rtt", Hash.length)
-~~~
-
-This allows for a succession of new secrets to be created as needed.
-
-### Packet Protection Keys
-
-The complete key expansion uses a similar process for key expansion to that
-defined in Section 7.3 of {{!TLS13}}, using QHKDF-Expand in place of
-HKDF-Expand-Label.  QUIC uses the AEAD function negotiated by TLS.
-
-The packet protection key and IV used to protect the 0-RTT packets sent by a
-client are derived from the QUIC 0-RTT secret. The packet protection keys and
-IVs for 1-RTT packets sent by the client and server are derived from the current
-generation of client and server 1-RTT secrets (client_pp_secret\<i> and
-server_pp_secret\<i>) respectively.
-
-The length of the QHKDF-Expand output is determined by the requirements of the
-AEAD function selected by TLS.  The key length is the AEAD key size.  As defined
-in Section 5.3 of {{!TLS13}}, the IV length is the larger of 8 or N_MIN (see
-Section 4 of {{!AEAD=RFC5116}}; all ciphersuites defined in {{!TLS13}} have
-N_MIN set to 12).
-
-The size of the packet protection key is determined by the packet protection
-algorithm, see {{pn-encrypt}}.
-
-For any secret S, the AEAD key uses a label of "key", the IV uses a label of
-"iv", packet number encryption uses a label of "pn":
-
-~~~
-key = QHKDF-Expand(S, "key", key_length)
-iv = QHKDF-Expand(S, "iv", iv_length)
-pn_key = QHKDF-Expand(S, "pn", pn_key_length)
-~~~
-
-Separate keys are derived for packet protection by clients and servers.  Each
-endpoint uses the packet protection key of its peer to remove packet protection.
-For example, client packet protection keys and IVs - which are also used by the
-server to remove the protection added by a client - for AEAD_AES_128_GCM are
-derived from 1-RTT secrets as follows:
-
-~~~
-client_pp_key<i> = QHKDF-Expand(client_pp_secret<i>, "key", 16)
-client_pp_iv<i>  = QHKDF-Expand(client_pp_secret<i>, "iv", 12)
-client_pp_pn<i>  = QHKDF-Expand(client_pp_secret<i>, "pn", 12)
-~~~
-
-The QUIC packet protection initially starts with keying material derived from
-handshake keys.  For a client, when the TLS state machine reports that the
-ClientHello has been sent, 0-RTT keys can be generated and installed for
-writing, if 0-RTT is available.  Finally, the TLS state machine reports
-completion of the handshake and 1-RTT keys can be generated and installed for
-writing.
 
 
 ## QUIC AEAD Usage {#aead}
@@ -868,18 +711,12 @@ All ciphersuites currently defined for TLS 1.3 - and therefore QUIC - have a
 16-byte authentication tag and produce an output 16 bytes larger than their
 input.
 
-Once TLS has provided a key, the contents of regular QUIC packets immediately
-after any TLS messages have been sent are protected by the AEAD selected by TLS.
-
-The key, K, is either the client packet protection key (client_pp_key\<i>) or
-the server packet protection key (server_pp_key\<i>), derived as defined in
-{{key-expansion}}.
-
-The nonce, N, is formed by combining the packet protection IV (either
-client_pp_iv\<i\> or server_pp_iv\<i\>) with the packet number.  The 64 bits
-of the reconstructed QUIC packet number in network byte order is left-padded
-with zeros to the size of the IV.  The exclusive OR of the padded packet number
-and the IV forms the AEAD nonce.
+The key and iv for the packet are computed as described in {{encryption-keys}}.
+The nonce, N, is formed by combining the packet protection IV with the
+packet number.  The 64 bits of the reconstructed QUIC packet number in
+network byte order is left-padded with zeros to the size of the IV.
+The exclusive OR of the padded packet number and the IV forms the AEAD
+nonce.
 
 The associated data, A, for the AEAD is the contents of the QUIC header,
 starting from the flags octet in either the short or long header.
