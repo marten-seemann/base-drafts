@@ -1137,13 +1137,6 @@ QUIC prohibits the sending of empty `STREAM` frames unless they are marked with
 the FIN bit.  This prevents `STREAM` frames from being sent that only waste
 effort.
 
-TLS records SHOULD always contain at least one octet of a handshake messages or
-alert.  Records containing only padding are permitted during the handshake, but
-an excessive number might be used to generate unnecessary work.  Once the TLS
-handshake is complete, endpoints MUST NOT send TLS application data records.
-Receiving TLS application data MUST be treated as a connection error of type
-PROTOCOL_VIOLATION.
-
 While there are legitimate uses for some redundant packets, implementations
 SHOULD track redundant packets and treat excessive volumes of any non-productive
 packets as indicative of an attack.
