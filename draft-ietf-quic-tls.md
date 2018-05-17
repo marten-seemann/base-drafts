@@ -1039,14 +1039,13 @@ A small ClientHello that results in a large block of handshake messages from a
 server can be used in packet reflection attacks to amplify the traffic generated
 by an attacker.
 
-Certificate caching {{?RFC7924}} can reduce the size of the server's handshake
-messages significantly.
-
-QUIC requires that the packet containing a ClientHello be padded to a minimum
-size.  A server is less likely to generate a packet reflection attack if the
-data it sends is a small multiple of this size.  A server SHOULD use a
-HelloRetryRequest if the size of the handshake messages it sends is likely to
-significantly exceed the size of the packet containing the ClientHello.
+QUIC includes three defenses against this attack. First, the packet
+containing a ClientHello be padded to a minimum size. Second, if
+responding to an unverified source address, the server is forbidden to
+send more than three packets in its first flight ({{QUIC-TRANSPORT}};
+Section 4.4.3). Finally, because ACKs of Handshake packets
+are authenticated, a blind attacker cannot forge them
+Put together, these defenses limit the level of amplification.
 
 
 ## Peer Denial of Service {#useless}
