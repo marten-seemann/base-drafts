@@ -463,8 +463,8 @@ Important:
 
 ### Encryption Level Changes
 
-At each change of encryption level in either direction, QUIC signals
-TLS, providing the new level and the encryption keys. It will also
+At each change of encryption level in either direction, TLS signals
+QUIC, providing the new level and the encryption keys. It will also
 These events are not asynchronous, they always occur immediately after TLS is
 provided with new handshake octets, or after TLS produces handshake octets.
 
@@ -831,12 +831,13 @@ encrypted_pn = ChaCha20(pn_key, counter, nonce, packet_number)
 
 ## Receiving Protected Packets
 
-Once an endpoint successfully receives a packet with a given packet number, it
-MUST discard all packets with higher packet numbers if they cannot be
-successfully unprotected with either the same key, or - if there is a key update
-- the next packet protection key (see {{key-update}}).  Similarly, a packet that
-appears to trigger a key update, but cannot be unprotected successfully MUST be
-discarded.
+Once an endpoint successfully receives a packet with a given packet
+number, it MUST discard all packets in the same sequence number space
+with higher packet numbers if they cannot be successfully unprotected
+with either the same key, or - if there is a key update - the next
+packet protection key (see {{key-update}}).  Similarly, a packet that
+appears to trigger a key update, but cannot be unprotected
+successfully MUST be discarded.
 
 Failure to unprotect a packet does not necessarily indicate the existence of a
 protocol error in a peer or an attack.  The truncated packet number encoding
@@ -844,128 +845,23 @@ used in QUIC can cause packet numbers to be decoded incorrectly if they are
 delayed significantly.
 
 
-# Key Phases
+# Key Update
 
-As TLS reports the availability of 0-RTT and 1-RTT keys, new keying material can
-be exported from TLS and used for QUIC packet protection.  At each transition
-during the handshake a new secret is exported from TLS and packet protection
-keys are derived from that secret.
+Once the 1-RTT keys are established and the short header is in use, the
+KEY_PHASE bit in the short header is used to indicate whether key
+updates have occurred. The KEY_PHASE bit (the 0x20 bit of the QUIC
+short header) is initially set to 0 and then inverted with each key
+update {{key-update}}.
 
-Every time that a new set of keys is used for protecting outbound packets, the
-KEY_PHASE bit in the public flags is toggled.  0-RTT protected packets use the
-QUIC long header, they do not use the KEY_PHASE bit to select the correct keys
-(see {{first-keys}}).
-
-Once the connection is fully enabled, the KEY_PHASE bit allows a recipient to
+The KEY_PHASE bit allows a recipient to
 detect a change in keying material without necessarily needing to receive the
 first packet that triggered the change.  An endpoint that notices a changed
 KEY_PHASE bit can update keys and decrypt the packet that contains the changed
 bit, see {{key-update}}.
 
-The KEY_PHASE bit is included as the 0x20 bit of the QUIC short header.
-
-Transitions between keys during the handshake are complicated by the need to
-ensure that TLS handshake messages are sent with the correct packet protection.
-
-
-## Packet Protection for the TLS Handshake {#hs-protection}
-
-The initial exchange of packets that carry the TLS handshake are AEAD-protected
-using the handshake secrets generated as described in {{initial-secrets}}.
-All TLS handshake messages up to the TLS Finished message sent by either
-endpoint use packets protected with handshake keys.
-
-Any TLS handshake messages that are sent after completing the TLS handshake do
-not need special packet protection rules.  Packets containing these messages use
-the packet protection keys that are current at the time of sending (or
-retransmission).
-
-Like the client, a server MUST send retransmissions of its unprotected handshake
-messages or acknowledgments for unprotected handshake messages sent by the
-client in packets protected with handshake keys.
-
-
-### Initial Key Transitions {#first-keys}
-
-Once the TLS handshake is complete, keying material is exported from TLS and
-used to protect QUIC packets.
-
-Packets protected with 1-RTT keys initially have a KEY_PHASE bit set to 0.  This
-bit inverts with each subsequent key update (see {{key-update}}).
-
-If the client sends 0-RTT data, it uses the 0-RTT packet type.  The packet that
-contains the TLS EndOfEarlyData and Finished messages are sent in packets
-protected with handshake keys.
-
-Using distinct packet types during the handshake for handshake messages, 0-RTT
-data, and 1-RTT data ensures that the server is able to distinguish between the
-different keys used to remove packet protection.  All of these packets can
-arrive concurrently at a server.
-
-A server might choose to retain 0-RTT packets that arrive before a TLS
-ClientHello.  The server can then use those packets once the ClientHello
-arrives.  However, the potential for denial of service from buffering 0-RTT
-packets is significant.  These packets cannot be authenticated and so might be
-employed by an attacker to exhaust server resources.  Limiting the number of
-packets that are saved might be necessary.
-
-The server transitions to using 1-RTT keys after sending its first flight of TLS
-handshake messages, ending in the Finished.
-From this point, the server protects all packets with 1-RTT
-keys.  Future packets are therefore protected with 1-RTT keys.  Initially, these
-are marked with a KEY_PHASE of 0.
-
-
-### Retransmission and Acknowledgment of Unprotected Packets
-
-TLS handshake messages from both client and server are critical to the key
-exchange.  The contents of these messages determine the keys used to protect
-later messages.  If these handshake messages are included in packets that are
-protected with these keys, they will be indecipherable to the recipient.
-
-Even though newer keys could be available when retransmitting, retransmissions
-of these handshake messages MUST be sent in packets protected with handshake
-keys.  An endpoint MUST generate ACK frames for these messages and send them in
-packets protected with handshake keys.
-
-A HelloRetryRequest handshake message might be used to reject an initial
-ClientHello.  A HelloRetryRequest handshake message is sent in a Retry packet;
-any second ClientHello that is sent in response uses a Initial packet type.
-These packets are only protected with a predictable key (see
-{{initial-secrets}}).  This is natural, because no shared secret will be
-available when these messages need to be sent.  Upon receipt of a
-HelloRetryRequest, a client SHOULD cease any transmission of 0-RTT data; 0-RTT
-data will only be discarded by any server that sends a HelloRetryRequest.
-
-The packet type ensures that protected packets are clearly distinguished from
-unprotected packets.  Loss or reordering might cause unprotected packets to
-arrive once 1-RTT keys are in use, unprotected packets are easily distinguished
-from 1-RTT packets using the packet type.
-
-Once 1-RTT keys are available to an endpoint, it no longer needs the TLS
-handshake messages that are carried in unprotected packets.  However, a server
-might need to retransmit its TLS handshake messages in response to receiving an
-unprotected packet that contains ACK frames.  A server MUST process ACK frames
-in unprotected packets until the TLS handshake is reported as complete, or it
-receives an ACK frame in a protected packet that acknowledges all of its
-handshake messages.
-
-To limit the number of key phases that could be active, an endpoint MUST NOT
-initiate a key update while there are any unacknowledged handshake messages, see
-{{key-update}}.
-
-
-## Key Update {#key-update}
-
-Once the TLS handshake is complete, the KEY_PHASE bit allows for refreshes of
-keying material by either peer.  Endpoints start using updated keys immediately
-without additional signaling; the change in the KEY_PHASE bit indicates that a
-new key is in use.
-
 An endpoint MUST NOT initiate more than one key update at a time.  A new key
 cannot be used until the endpoint has received and successfully decrypted a
-packet with a matching KEY_PHASE.  Note that when 0-RTT is attempted the value
-of the KEY_PHASE bit will be different on packets sent by either peer.
+packet with a matching KEY_PHASE.
 
 A receiving endpoint detects an update when the KEY_PHASE bit doesn't match what
 it is expecting.  It creates a new secret (see {{TLS13}}; Section 7.2) and the
@@ -1008,17 +904,6 @@ key updates in a short time frame succession and significant packet reordering.
                       <--------
 ~~~
 {: #ex-key-update title="Key Update"}
-
-As shown in {{quic-tls-handshake}} and {{ex-key-update}}, there is never a
-situation where there are more than two different sets of keying material that
-might be received by a peer.  Once both sending and receiving keys have been
-updated, the peers immediately begin to use them.
-
-A server cannot initiate a key update until it has received the client's
-Finished message.  Otherwise, packets protected by the updated keys could be
-confused for retransmissions of handshake messages.  A client cannot initiate a
-key update until all of its handshake messages have been acknowledged by the
-server.
 
 A packet that triggers a key update could arrive after successfully processing a
 packet with a higher packet number.  This is only possible if there is a key
