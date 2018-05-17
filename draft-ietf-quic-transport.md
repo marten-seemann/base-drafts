@@ -651,20 +651,12 @@ incremented normally for other Handshake packets.
 
 Servers MUST NOT send more than three packets including Initial and Handshake
 packets without receiving a packet from a verified source address.  Source
-addresses can be verified through an address validation token, receipt of the
-final cryptographic message from the client, or by receiving a valid
-PATH_RESPONSE frame from the client.
+addresses can be verified through an address validation token
+(delivered via a Retry packet or a NEW_TOKEN frame) or by receiving
+any message from the client encrypted using the Handshake keys.
 
-If the server expects to generate more than three packets in response to a
-client Initial packet, it SHOULD include a PATH_CHALLENGE frame in each
-Handshake packet that it sends.  After receiving at least one valid
-PATH_RESPONSE frame, the server can send its remaining Handshake packets.
-Servers can instead perform address validation using a Retry packet; this
-requires less state on the server, but could involve additional computational
-effort depending on implementation choices.
-
-The payload of this packet contains STREAM frames and could contain PADDING,
-ACK, PATH_CHALLENGE, or PATH_RESPONSE frames.  Handshake packets MAY contain
+The payload of this packet contains CRYPTO_HS frames and could contain PADDING,
+or ACK frames. Handshake packets MAY contain
 CRYPTO_CLOSE or CONNECTION_CLOSE frames if the handshake is unsuccessful.
 
 
