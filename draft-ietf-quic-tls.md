@@ -332,7 +332,9 @@ u- Handshake messages MAY appear in packets of any encryption level.
 
 Because packets may be reordered on the wire, QUIC uses the packet
 type to indicate which level a given packet was encrypted
-under [TBD: Table needed here?]
+under [TBD: Table needed here?]. When multiple packets of
+different encryptions need to be sent, endpoints SHOULD use
+compound packets to send them in the same UDP datagram.
 
 
 ## Handshake and Setup Sequence
@@ -495,25 +497,32 @@ client and server.
 ~~~
 Client                                                    Server
 
-Handshake Received (Initial
+Get Handshake
+                      Initial ------------>
 Rekey out to 0-RTT Keys
-                      --- send/receive --->
+                      0-RTT -------------->
                                               Handshake Received
-                                          Rekey in to 0-RTT keys
                                                    Get Handshake
-                                                1-RTT Keys Ready
-                     <--- send/receive ---
+                      <------------ Initial
+                                          Rekey in to 0-RTT keys
+                                              Handshake Received
+                                      Rekey in to Handshake keys
+                                                   Get Handshake
+                     <----------- Handshake
+                                         Rekey out to 1-RTT keys
+Handshake Received
+Rekey in to Handshake keys
 Handshake Received
 Get Handshake
 Handshake Complete
-1-RTT Keys Ready
-                      --- send/receive --->
+Rekey out to 1-RTT keys
+                      Handshake ---------->
                                               Handshake Received
+                                          Rekey in to 1-RTT keys
                                                    Get Handshake
                                               Handshake Complete
-                     <--- send/receive ---
+                     <--------------- 1-RTT
 Handshake Received
-Get Handshake
 ~~~
 {: #exchange-summary title="Interaction Summary between QUIC and TLS"}
 
