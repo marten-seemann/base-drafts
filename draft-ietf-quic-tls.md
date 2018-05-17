@@ -321,7 +321,7 @@ data into the same packet.
 In general, the rules for which data can appear in packets of which
 encryption level are the same in QUIC as in TLS over TCP:
 
-- Handshake messages MAY appear in packets of any encryption level.
+u- Handshake messages MAY appear in packets of any encryption level.
   [TODO: Alerts]
 - PADDING frames MAY appear in packets of any encryption level.
 - ACK frames MAY appear in packets of any encryption level, but
@@ -330,99 +330,72 @@ encryption level are the same in QUIC as in TLS over TCP:
 - STREAM frames MAY appear in the 0-RTT and 1-RTT levels.
 - All other frame types MUST only appear at the 1-RTT levels.
 
+Because packets may be reordered on the wire, QUIC uses the packet
+type to indicate which level a given packet was encrypted
+under [TBD: Table needed here?]. When multiple packets of
+different encryptions need to be sent, endpoints SHOULD use
+compound packets to send them in the same UDP datagram.
+
 
 ## Handshake and Setup Sequence
 
 The integration of QUIC with a TLS handshake is shown in more detail in
-{{quic-tls-handshake}}.  QUIC `STREAM` frames on stream 0 carry the TLS
-handshake.  QUIC performs loss recovery {{QUIC-RECOVERY}} for this stream and
-ensures that TLS handshake messages are delivered in the correct order.
+{{quic-tls-handshake}}. 
 
 ~~~
-    Client                                             Server
+Client                                                 Server
 
-@H QUIC STREAM Frame(s) <0>:
-     ClientHello
-       + QUIC Extension
-                            -------->
-                        0-RTT Key => @0
+<CRYPTO[ClientHello]>  --------->
 
-@0 QUIC STREAM Frame(s) <any stream>:
-   Replayable QUIC Frames
-                            -------->
+(STREAM[0-RTTData])    --------->
+       
+                       <---------   <ACK, CRYPTO[ServerHello]>
 
-                                      QUIC STREAM Frame <0>: @H
-                                               ServerHello
-                                  {TLS Handshake Messages}
-                            <--------
-                        1-RTT Key => @1
+                       <---------  {CRYPTO[EncryptedExtensions,
+                                           Certificate,
+                                           CertificateVerify,
+                                           Finished]}
+{ACK,
+ CRYPTO[Finished]}     --------->
 
-                                           QUIC Frames <any> @1
-                            <--------
-@H QUIC STREAM Frame(s) <0>:
-     (EndOfEarlyData)
-     {Finished}
-                            -------->
+[Any frames]           <-------->                  [Any frames]
 
-@1 QUIC Frames <any>        <------->      QUIC Frames <any> @1
 ~~~
-{: #quic-tls-handshake title="QUIC over TLS Handshake"}
+{: #quic-tls-handshake title="QUIC Handshake"}
 
 In {{quic-tls-handshake}}, symbols mean:
 
-* "<" and ">" enclose stream numbers.
+* "<" and ">" enclose packets protected with obfuscation keys [REF]
 
-* "@" indicates the keys that are used for protecting the QUIC packet (H =
-  handshake, using keys from the well-known cleartext packet secret;
-  0 = 0-RTT keys; 1 = 1-RTT keys).
-
-* "(" and ")" enclose messages that are protected with TLS 0-RTT handshake or
+* "(" and ")" enclose packets that are protected with 0-RTT handshake or
   application keys.
 
-* "{" and "}" enclose messages that are protected by the TLS Handshake keys.
+* "{" and "}" enclose packets that are protected by the Handshake keys.
+
+* "[" and "]" enclose packets that are protected by the Application keys.
+
+* CRYPTO[...], STREAM[...] and ACK indicate QUIC frames.
 
 If 0-RTT is not attempted, then the client does not send packets protected by
-the 0-RTT key (@0).  In that case, the only key transition on the client is from
-handshake packets (@H) to 1-RTT protection (@1), which happens after it sends
-its final set of TLS handshake messages.
-
-Note: two different types of packet are used during the handshake by both client
-and server.  The Initial packet carries a TLS ClientHello message; the remainder
-of the TLS handshake is carried in Handshake packets.  The Retry packet carries
-a TLS HelloRetryRequest, if it is needed, and Handshake packets carry the
-remainder of the server handshake.
-
-The server sends TLS handshake messages without protection (@H).  The server
-transitions from no protection (@H) to full 1-RTT protection (@1) after it sends
-the last of its handshake messages.
-
-Some TLS handshake messages are protected by the TLS handshake record
-protection.  These keys are not exported from the TLS connection for use in
-QUIC.  QUIC packets from the server are sent in the clear until the final
-transition to 1-RTT keys.
-
-The client transitions from handshake (@H) to 0-RTT keys (@0) when sending 0-RTT
-data, and subsequently to to 1-RTT keys (@1) after its second flight of TLS
-handshake messages.  This creates the potential for unprotected packets to be
-received by a server in close proximity to packets that are protected with 1-RTT
-keys.
-
-More information on key transitions is included in {{hs-protection}}.
+the 0-RTT key. 
 
 
 ## Interface to TLS
 
-As shown in {{schematic}}, the interface from QUIC to TLS consists of four
-primary functions: Handshake, Source Address Validation, Key Ready Events, and
-Secret Export.
+As shown in {{schematic}}, the interface from QUIC to TLS consists of three
+primary functions:
+
+- Sending and receiving handshake messages
+- Rekeying (both in and out)
+- Handshake state updates
 
 Additional functions might be needed to configure TLS.
 
 
-### Handshake Interface
+### Sending and Receiving Handshake Messages
 
 In order to drive the handshake, TLS depends on being able to send and receive
-handshake messages on stream 0.  There are two basic functions on this
+handshake messages. There are two basic functions on this
 interface: one where QUIC requests handshake messages and one where QUIC
 provides handshake packets.
 
@@ -431,18 +404,34 @@ Before starting the handshake QUIC provides TLS with the transport parameters
 
 A QUIC client starts TLS by requesting TLS handshake octets from
 TLS.  The client acquires handshake octets before sending its first packet.
+A QUIC server starts the process by providing TLS with the client's
+handshake octets.
 
-A QUIC server starts the process by providing TLS with stream 0 octets.
+At any given time, an endpoint will have a current sending encryption
+level and receiving encryption level. Each encryption level is
+associated with a different flow of bytes, which is reliably
+transmitted to the peer in CRYPTO frames. When TLS provides handshake
+octets to be sent, they are appended to the current flow and
+will eventually be transmitted under the then-current key.
 
-Each time that an endpoint receives data on stream 0, it delivers the octets to
-TLS if it is able.  Each time that TLS is provided with new data, new handshake
-octets are requested from TLS.  TLS might not provide any octets if the
-handshake messages it has received are incomplete or it has no data to send.
+When an endpoint receives a CRYPTO frame from the network, it proceeds
+as follows:
 
-At the server, when TLS provides handshake octets, it also needs to indicate
-whether the octets contain a HelloRetryRequest.  A HelloRetryRequest MUST always
-be sent in a Retry packet, so the QUIC server needs to know whether the octets
-are a HelloRetryRequest.
+- If the packet was in the current receiving encryption level, sequence
+  the data into the input flow as usual. As with STREAM frames,
+  The offset is used to find the proper location in the data sequence.
+  If the result of this process is that new data is available, then
+  it is delivered to TLS.
+
+- If the packet is from a previously installed encryption level, it
+  MUST not contain data which extends past the end of previously
+  received data in that flow. [TODO(ekr): Double check that this
+  can't happen]. Implementations MUST treat any violations of this
+  requirement as a connection error of type PROTOCOL_VIOLATION.
+
+Each time that TLS is provided with new data, new handshake octets are
+requested from TLS.  TLS might not provide any octets if the handshake
+messages it has received are incomplete or it has no data to send.
 
 Once the TLS handshake is complete, this is indicated to QUIC along with any
 final handshake octets that TLS needs to send.  TLS also provides QUIC with the
@@ -455,7 +444,7 @@ data is that the server might wish to provide additional or updated session
 tickets to a client.
 
 When the handshake is complete, QUIC only needs to provide TLS with any data
-that arrives on stream 0.  In the same way that is done during the handshake,
+that arrives in CRYPTO streams.  In the same way that is done during the handshake,
 new data is requested from TLS after providing received data.
 
 Important:
@@ -472,34 +461,32 @@ Important:
   STREAM frame that carries the Finished message in multiple packets.  This
   enables immediate server processing for those packets.
 
-### Key Ready Events
+### Encryption Level Changes
 
-TLS provides QUIC with signals when 0-RTT and 1-RTT keys are ready for use.
+At each change of encryption level in either direction, QUIC signals
+TLS, providing the new level and the encryption keys. It will also
 These events are not asynchronous, they always occur immediately after TLS is
 provided with new handshake octets, or after TLS produces handshake octets.
-
-When TLS completed its handshake, 1-RTT keys can be provided to QUIC.  On both
-client and server, this occurs after sending the TLS Finished message.
 
 This ordering means that there could be frames that carry TLS handshake messages
 ready to send at the same time that application data is available.  An
 implementation MUST ensure that TLS handshake messages are always sent in
 packets protected with handshake keys (see {{handshake-secrets}}).  Separate
-packets are required for data that needs protection from 1-RTT keys.
+packets are required for data that needs protection application data keys.
 
 If 0-RTT is possible, it is ready after the client sends a TLS ClientHello
 message or the server receives that message.  After providing a QUIC client with
-the first handshake octets, the TLS stack might signal that 0-RTT keys are
-ready.  On the server, after receiving handshake octets that contain a
+the first handshake octets, the TLS stack might signal the change to the
+the 0-RTT keys. On the server, after receiving handshake octets that contain a
 ClientHello message, a TLS server might signal that 0-RTT keys are available.
 
-1-RTT keys are used for packets in both directions.  0-RTT keys are only
-used to protect packets sent by the client.
+Note that although TLS only uses one encryption level at a time, QUIC
+may use more than one level. For instance, after sending its Finished
+message (using a CRYPTO frame in Handshake encryption) may send STREAM
+data (in 1-RTT encryption). However, if the Finished is lost, the client
+would have to retransmit the Finished, in which case it would use
+Handshake encryption.
 
-
-### Secret Export
-
-Details how secrets are exported from TLS are included in {{key-expansion}}.
 
 
 ### TLS Interface Summary
@@ -511,24 +498,31 @@ client and server.
 Client                                                    Server
 
 Get Handshake
-0-RTT Key Ready
-                      --- send/receive --->
+                      Initial ------------>
+Rekey out to 0-RTT Keys
+                      0-RTT -------------->
                                               Handshake Received
-                                                 0-RTT Key Ready
                                                    Get Handshake
-                                                1-RTT Keys Ready
-                     <--- send/receive ---
+                      <------------ Initial
+                                          Rekey in to 0-RTT keys
+                                              Handshake Received
+                                      Rekey in to Handshake keys
+                                                   Get Handshake
+                     <----------- Handshake
+                                         Rekey out to 1-RTT keys
+Handshake Received
+Rekey in to Handshake keys
 Handshake Received
 Get Handshake
 Handshake Complete
-1-RTT Keys Ready
-                      --- send/receive --->
+Rekey out to 1-RTT keys
+                      Handshake ---------->
                                               Handshake Received
+                                          Rekey in to 1-RTT keys
                                                    Get Handshake
                                               Handshake Complete
-                     <--- send/receive ---
+                     <--------------- 1-RTT
 Handshake Received
-Get Handshake
 ~~~
 {: #exchange-summary title="Interaction Summary between QUIC and TLS"}
 
