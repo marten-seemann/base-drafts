@@ -297,7 +297,7 @@ packet protection being called out specially.
 ~~~
 {: #schematic title="QUIC and TLS Interactions"}
 
-Unlike TLS over TCP, with QUIC applications which want to send data do not
+Unlike TLS over TCP, QUIC applications which want to send data do not
 send it through TLS "application_data" records. Rather, they send it
 as QUIC STREAM frames which are then carried in QUIC packets.
 
@@ -616,13 +616,13 @@ the state of all streams, including application state bound to those streams.
 
 ## HelloRetryRequest
 
-TLS's HelloRetryRequest feature ({{TLS13}; Section 4.1.4) can be used
-to correct a client's incorrect KeyShare extension as well as for
-a stateless round trip check. From the perspective of QUIC, this just
-looks like additional messages carried in the Initial encryption level.
-Although it is in principle possible to use this feature for address
-verification, QUIC implementations SHOULD instead use the RETRY
-feature ([TODO: REF]).
+In TLS over TCP, the HelloRetryRequest feature ({{TLS13}; Section
+4.1.4) can be used to correct a client's incorrect KeyShare extension
+as well as for a stateless round trip check. From the perspective of
+QUIC, this just looks like additional messages carried in the Initial
+encryption level. Although it is in principle possible to use this
+feature for address verification in QUIC, QUIC implementations SHOULD
+instead use the RETRY feature ([TODO: REF]).
 
 
 ## TLS Errors
@@ -678,7 +678,7 @@ The hash function for HKDF when deriving handshake secrets and keys is SHA-256
 {{!SHA=DOI.10.6028/NIST.FIPS.180-4}}.  The connection ID used with
 HKDF-Expand-Label is the connection ID chosen by the client.
 
-The initial salt is a 20 octet sequence shown in the figure in hexadecimal
+initial_salt is a 20 octet sequence shown in the figure in hexadecimal
 notation. Future versions of QUIC SHOULD generate a new salt value, thus
 ensuring that the keys are different for each version of QUIC. This prevents a
 middlebox that only recognizes one version of QUIC from seeing or modifying the
@@ -836,14 +836,15 @@ the protocol.
 A client MUST only use 0-RTT keys to protect data that is idempotent.  A client
 MAY wish to apply additional restrictions on what data it sends prior to the
 completion of the TLS handshake.  A client otherwise treats 0-RTT keys as
-equivalent to 1-RTT keys.
+equivalent to 1-RTT keys, except that it ACKs MUST only be sent with
+1-RTT keys.
 
 A client that receives an indication that its 0-RTT data has been accepted by a
 server can send 0-RTT data until it receives all of the server's handshake
 messages.  A client SHOULD stop sending 0-RTT data if it receives an indication
 that 0-RTT data has been rejected.
 
-A server MUST NOT use 0-RTT keys to protect packets.
+A server MUST NOT use 0-RTT keys to protect packets. This implies that the
 
 If a server rejects 0-RTT, then the TLS stream will not include any TLS records
 protected with 0-RTT keys.
@@ -873,10 +874,10 @@ A server could receive packets protected with 0-RTT keys prior to receiving a
 TLS ClientHello.  The server MAY retain these packets for later decryption in
 anticipation of receiving a ClientHello.
 
-Receiving and verifying the TLS Finished message is critical in ensuring the
-integrity of the TLS handshake.  A server MUST NOT use protected packets from
-the client prior to verifying the client Finished message if its response
-depends on client authentication.
+Receiving and verifying the TLS Finished message is critical in
+ensuring the integrity of the TLS handshake.  A server MUST NOT use
+1-RTT protected packets from the client prior to verifying the client
+Finished message if its response depends on client authentication.
 
 
 # Key Update
