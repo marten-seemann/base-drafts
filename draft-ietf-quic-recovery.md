@@ -92,14 +92,14 @@ when, and only when, they appear in all capitals, as shown here.
 All transmissions in QUIC are sent with a packet-level header, which indicates
 an encryption level and includes a packet sequence number
 (referred to below as a packet number).  The encryption level indicates the
-packet number space, as described in the {{QUIC-TRANSPORT}} document.  Packet
+packet number space, as described in {{QUIC-TRANSPORT}}.  Packet
 numbers never repeat within a packet number space for the lifetime of a
 connection.  Packet numbers monotonically increase within a space,
 preventing ambiguity.
 
-This fundamental design decision obviates the need for disambiguating
-between transmissions and retransmissions and eliminates significant
-complexity from QUIC's interpretation of TCP loss detection mechanisms.
+This design obviates the need for disambiguating between transmissions
+and retransmissions and eliminates significant complexity from QUIC's
+interpretation of TCP loss detection mechanisms.
 
 Every packet may contain several frames.  We outline the frames that are
 important to the loss detection and congestion control machinery below.
@@ -111,7 +111,7 @@ important to the loss detection and congestion control machinery below.
 * Retransmittable packets are those that contain at least one
   retransmittable frame.
 
-* Crypto handshake data is sent on stream 0, and uses the reliability
+* Crypto handshake data is sent in CRYPTO_HS frames, and uses the reliability
   machinery of QUIC underneath.
 
 * ACK frames contain acknowledgment information.  ACK frames contain one or more
@@ -126,18 +126,14 @@ these protocol differences below.
 
 ### Separate Packet Number Spaces
 
-Because QUIC packets must be received and processed before being acknowledged,
-QUIC uses separate packet number spaces for each encryption level
-(except that 0-RTT and all generations of 1-RTT keys use the same
-packet number space). Separating the
-spaces allows the recovery mechanisms to work without special cases to avoid
-spuriously retransmitting un-processable packets.  Multiple recovery contexts
-creates multiple tails, and tails tend to require costly timeouts to recover.
-The optimizations ({{optimizations}}) section below describes
-some optimizations to allow recovering from these tails as quickly as a single
-packet number space without making assumptions about receiver behavior.
-All packet number spaces are expected to traverse a single path, so QUIC
-uses unified congestion control and RTT measurement across the spaces.
+QUIC uses separate packet number spaces for each encryption level, except that
+0-RTT and all generations of 1-RTT keys use the same packet number space.
+Separating the spaces allows the recovery mechanisms to work without special
+cases to avoid spuriously retransmitting un-processable packets.
+Separate packet number spaces do not imply separate paths. Consequently,
+a sender need not split congestion control actions across packet number spaces.
+The optimizations described in {{optimizations}} help a sender co-ordinate
+loss detection across packet number spaces.
 
 ### Monotonically Increasing Packet Numbers
 
@@ -286,10 +282,10 @@ and Retransmission Timeout mechanisms.
 
 ### Crypto Handshake Timeout
 
-CRYPTO_HS data is critical to QUIC transport and crypto negotiation, so a
-more aggressive timeout is used to retransmit it.  Below, the word handshake
-packet is used to refer to packets containing CRYPTO_HS data, not only packets
-with the long header packet type HANDSHAKE.
+Data in CRYPTO_HS frames is critical to QUIC transport and crypto negotiation,
+so a more aggressive timeout is used to retransmit it.  Below, the word
+handshake packet is used to refer to packets containing CRYPTO_HS frames,
+not packets with the specific long header packet type Handshake.
 
 The initial handshake timeout SHOULD be set to twice the initial RTT.
 
@@ -317,10 +313,9 @@ computed and the alarm SHOULD be set for twice the newly computed smoothed RTT.
 A RETRY packet causes the content of the client's INITIAL packet to be
 immediately retransmitted along with the token present in the RETRY.
 
-The RETRY echoes the packet number present in the INITIAL packet,
-and this may be used as an RTT measurement with an implied ack delay of 0.
-The RETRY indicates the INITIAL was not processed, so it MUST not be treated
-as an acknowledgement.
+The RETRY indicates that the INITIAL was received but not processed.
+It MUST NOT be treated as an acknowledgment for the INITIAL,
+but it MAY be used for an RTT measurement.
 
 ### Tail Loss Probe {#tlp}
 
@@ -428,7 +423,7 @@ There are cases where one may be able to gain recovery information from
 acknowledgements of packets in another packet number space, but they rely
 on complex assumptions about the peer’s processing and acknowledgement
 algorithms.  Even those are unable to quickly recover from cases such as
-losing the client's INITIAL, but receiving the 0-RTT packets.  Below are
+losing the client's Initial, but receiving the 0-RTT packets.  Below are
 three different optimizations in increasing complexity that minimize
 handshake latency.
 
@@ -443,7 +438,7 @@ received.
 The receiver SHOULD send an EMPTY_ACK frame soon (e.g., 1ms) after
 undecryptable packets are received, even if those received packets are
 not buffered for later decryption.  The small delay allows for cases when
-0-RTT packets are reordered in front of the INITIAL, which is not uncommon
+0-RTT packets are reordered in front of the Initial, which is not uncommon
 on networks that prioritize small packets.  The receiver should limit the
 number of EMPTY_ACK frames sent to one per packet number space per RTT.
 
@@ -459,11 +454,11 @@ so it should not be used like an RTT signal from a newly acknowledged
 packet.  It MAY change the connection’s default RTT if no RTT measurements
 have been taken.
 
-### Compound Packets
+### Coalesced Packets
 
 Despite loss recovery being separate for different packet number spaces,
-the ability to send a compound packet enables faster recovery with small,
-and sometimes no overhead.  The acknowledgement of a compound packet
+the ability to send a coalesced packet enables faster recovery with small,
+and sometimes no overhead.  The acknowledgement of a coalesced packet
 allows QUIC recovery to use early retransmit to determine if any prior
 packets in that space were lost without waiting for timeouts.
 
@@ -492,8 +487,8 @@ In particular:
 
 ## Generating Acknowledgements
 
-ACK frames only apply to one packet number space, and therefore it
-may be optimal to store multiple ACK frames at once until the
+An ACK frame acknowledges packets from only one packet number space.
+It may be optimal to store multiple ACK frames at once until the
 handshake is complete.
 
 QUIC SHOULD delay sending acknowledgements in response to packets,
