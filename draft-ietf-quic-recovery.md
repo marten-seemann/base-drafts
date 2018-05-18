@@ -111,7 +111,7 @@ important to the loss detection and congestion control machinery below.
 * Retransmittable packets are those that contain at least one
   retransmittable frame.
 
-* Crypto handshake data is sent in CRYPTO frames, and uses the reliability
+* Crypto handshake data is sent in CRYPTO_HS frames, and uses the reliability
   machinery of QUIC underneath.
 
 * ACK frames contain acknowledgment information.  ACK frames contain one or more
