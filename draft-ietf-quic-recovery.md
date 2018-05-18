@@ -429,26 +429,30 @@ handshake latency.
 
 ### Empty ACK frames
 
-Similar to DTLS 1.3 Section 7, the goal is to more quickly retransmit lost
-packets when the only other outstanding packets are undecryptable, such as
-0-RTT packet(s) sent after a client Initial.  In that case, the peer can’t
-even decrypt the packet number of the 0-RTT packets, but they do know a
-packet for a QUIC connection of a supported version was received.
+The EMPTY_ACK frame enables faster recovery of lost Initial and Handshake
+packets when the only other outstanding packets are undecryptable.
+In that case, the peer can’t decrypt the packet or packet number,
+but they do know a packet for a QUIC connection of a supported version was
+received.
 
-The receiver should send an empty ACK frame soon (e.g., 1ms) after
+The receiver SHOULD send an EMPTY_ACK frame soon (e.g., 1ms) after
 undecryptable packets are received, even if those received packets are
 not buffered for later decryption.  The small delay allows for cases when
 0-RTT packets are reordered in front of the Initial, which is not uncommon
-on networks that prioritize small packets.  When an empty ACK frame is
-received, a sender would immediately retransmit the missing handshake
-packet(s) as though the handshake timer had fired and re-arm the handshake
-timer.  If the missing handshake data was timer retransmitted after the
-packets that triggered the empty ack, then the empty ack should be ignored.
+on networks that prioritize small packets.  The receiver should limit the
+number of EMPTY_ACK frames sent to one per packet number space per RTT.
 
-An empty ACK frame does not acknowledge a new packet, and in cases
+When an EMPTY_ACK frame is received, a sender should immediately
+retransmit the missing handshake packet(s) as though the handshake timer
+fired and re-arm the handshake timer when the handshake packets are sent.
+If the missing handshake data was timer retransmitted after the packets
+that triggered the empty ack, then the empty ack should be ignored.
+
+An EMPTY_ACK frame does not acknowledge a new packet, and in cases
 when multiple packets are outstanding, the RTT signal is ambiguous,
-so it should not be used as an RTT signal.  It MAY change the connection’s
-default RTT if no RTT measurements have been taken.
+so it should not be used like an RTT signal from a newly acknowledged
+packet.  It MAY change the connection’s default RTT if no RTT measurements
+have been taken.
 
 ### Coalesced Packets
 
@@ -724,17 +728,19 @@ Pseudocode for OnPacketSent follows:
 
 When an ack is received, it may acknowledge 0 or more packets.
 
+When an EMPTY_ACK frame is received, it does not acknowledge
+any packets, but it may cause handshake data to be retransmitted.
+
 Pseudocode for OnAckReceived and UpdateRtt follow:
 
 ~~~
-  OnAckReceived(ack):
-    // Empty ack optimization.
+  OnEmptyAckReceived():
     // TODO: This is incorrect for the INITIAL/HANDSHAKE
-
-    if (ack.IsEmpty() &&
-        time_of_last_sent_handshake_packet <
+    if (time_of_last_sent_handshake_packet <
           time_of_last_sent_retransmittable_packet):
       RetransmitAllHandshakeData();
+
+  OnAckReceived(ack):
     largest_acked_packet = ack.largest_acked
     // If the largest acked is newly acked, update the RTT.
     if (sent_packets[ack.largest_acked]):
