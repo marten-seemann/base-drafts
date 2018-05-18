@@ -1512,10 +1512,11 @@ migration, see {{migrate-validate}}.
 
 ### Client Address Validation Procedure
 
-QUIC uses token-based address validation.  Any time the server wishes to
-validate a client address, it provides the client with a token.  As long as the
-token's authenticity can be checked (see {{token-integrity}}), if the client is able
-to return that token, it proves to the server that it received the token.
+QUIC uses token-based address validation.  Any time the server wishes
+to validate a client address, it provides the client with a token.  As
+long as the token's authenticity can be checked (see
+{{token-integrity}}), if the client is able to return that token, it
+proves to the server that it received the token.
 
 If QUIC decides to request address validation for the current
 handshake, it encodes the token in a Retry packet. The contents of
