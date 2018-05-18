@@ -589,8 +589,8 @@ determine packet protection keys.
 The client populates the Source Connection ID field with a value of its choosing
 and sets the low bits of the ConnID Len field to match.
 
-If the client has a suitable token available from
-a previous connection, it SHOULD populate the Token field.
+If the client has a suitable token available from a previous connection,
+it SHOULD populate the Token field.
 
 A server sends its first Initial packet in response to a Client Initial.  A
 server may send multiple Initial packets.  The cryptographic key exchange could
@@ -606,12 +606,12 @@ On receiving the first Server Initial packet the client uses the Source
 Connection ID supplied by the server as the Destination Connection ID for
 subsequent packets.
 
-If the client received a Retry packet from the server and is sending a
-second Initial packet, then it sets the Destination Connection ID to
+If the client received a Retry packet from the server and sends an
+Initial packet in response, then it sets the Destination Connection ID to
 the value from the Source Connection ID in the Retry packet. Changing
 Destination Connection ID also results in a change to the keys used to
-protect the Initial packet. It alsso sets the Token field to the
-token provided in the REtry.
+protect the Initial packet. It also sets the Token field to the
+token provided in the Retry.
 
 The first Initial packet contains a packet number of 0. Each packet sent after
 the Initial packet is associated with a packet number space and its packet
@@ -635,16 +635,16 @@ includes the packets sent after receiving a Version Negotiation
 ({{packet-version}}) or Retry packet ({{packet-retry}}).
 
 When a server receives an Initial packet with an address validation token, it
-should attempt to validate it.  If the token is invalid then it should just be
+should attempt to validate it.  If the token is invalid then it should be
 ignored.  If the validation succeeds, the server should then allow future
 connection handshakes to proceed (see {{stateless-retry}}).
 
 
 ### Retry Packet {#packet-retry}
 
-A Retry packet uses long headers with a type value of 0x7E.  It carries address
-validation token created by the server.  It is used by a server that wishes to
-perform a stateless retry (see {{stateless-retry}}).
+A Retry packet uses long headers with a type value of 0x7E.  It carries an
+address validation token created by the server.  It is used by a server that
+wishes to perform a stateless retry (see {{stateless-retry}}).
 
 ~~~
  0                   1                   2                   3
@@ -1526,10 +1526,10 @@ include information about the claimed client address (IP and port), a
 timestamp, and any other supplementary information the server will
 need to validate the token in the future.
 
-The Retry packet is sent to the client and then a legitimate client will
-respond with a token in the Initial packet's header when it attempts to continue
-the connection attempt.  In response to receiving the token, QUIC can either
-abort the connection or permit it to proceed.
+The Retry packet is sent to the client and a legitimate client will
+respond with an Initial packet containing the token from the Retry packet
+when it continues the handshake.  In response to receiving the token, a
+QUIC server can either abort the connection or permit it to proceed.
 
 A connection MAY be accepted without address validation - or with only limited
 validation - but a server SHOULD limit the data it sends toward an unvalidated
@@ -1555,7 +1555,8 @@ amount of data to a client in response to 0-RTT data.
 The server uses the NEW_TOKEN frame {{frame-new-token}} to provide the client
 with an address validation token that can be used to validate future 0-RTT
 connections.  The client may then use this token to validate future 0-RTT
-connections by including it in the Initial packet's header.
+connections by including it in the Initial packet's header.  The client MUST
+NOT use the token provided in a RETRY for future connections.
 
 Unlike the token that is created for a Retry packet, there might be some time
 between when the token is created and when the token is subsequently used.
