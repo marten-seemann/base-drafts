@@ -3246,7 +3246,26 @@ Implementors are encouraged to register version numbers of QUIC that they are
 using for private experimentation on the GitHub wiki at
 \<https://github.com/quicwg/base-drafts/wiki/QUIC-Versions\>.
 
+## Version Aliases
 
+In order to avoid ossification of the version number defined by this draft,
+servers announce a list of version numbers that they interpret as aliases for
+the version number used in this draft. Alias versions MUST NOT be a reserved
+version. A server MUST NOT advertise an alias version number for a version that
+it actually supports. If the server advertises an alias version number that the
+client actually supports, the client MUST assume the server doesn't support
+that version and ignore the alias.
+
+Servers SHOULD send at least one version alias, and SHOULD frequently change the
+value that they announce. Each version alias contains a lifetime, which
+indicates how long the server will accept this version alias. It also contains
+an initial salt, which is used instead of the initial salt as defined in section
+5.2 of {{QUIC-TLS}}. The list of version aliases is sent in the server's
+Transport Parameters (see {{transport-parameter-definitions}}).
+
+Clients SHOULD remember the list of aliases and use it for subsequent
+connections to the same server in the future. This applies to both 0-RTT
+connection as well as connections that don't use 0-RTT.
 
 # Variable-Length Integer Encoding {#integer-encoding}
 
@@ -3955,6 +3974,7 @@ language from Section 3 of {{!TLS13=RFC8446}}.
       max_ack_delay(11),
       disable_migration(12),
       preferred_address(13),
+      version_aliases(14),
       (65535)
    } TransportParameterId;
 
@@ -4114,6 +4134,25 @@ preferred_address (0x000d):
    } PreferredAddress;
 ~~~
 {: #fig-preferred-address title="Preferred Address format"}
+
+version_aliases (0x000e):
+
+: A list of version numbers that the server accepts as aliases for the
+  currently used version. This transport parameter is only sent by the server.
+  Every version alias contains a lifetime in milliseconds. The alias is only
+  valid for that lifetime. Clients MUST NOT use an expired alias.
+
+~~~
+   struct {
+     uint32 VersionNumber;
+     uint32 lifetime_ms;
+     opaque InitialSecret<20>;
+   } VersionAlias;
+
+   VersionAliases VersionAlias<0..2^16-1>;
+~~~
+{: #fig-version-aliases title="Version Aliases format"}
+
 
 If present, transport parameters that set initial flow control limits
 (initial_max_stream_data_bidi_local, initial_max_stream_data_bidi_remote, and
